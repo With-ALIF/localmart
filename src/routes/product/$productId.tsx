@@ -15,10 +15,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getProduct,
   productImage,
   discountPercent,
-  relatedProducts,
   categoryName,
 } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
@@ -29,8 +27,8 @@ import { cn } from "@/lib/utils";
 
 function ProductDetailsPage() {
   const { productId } = Route.useParams();
-  const product = getProduct(productId);
-  const { addToCart, toggleWishlist, isWishlisted } = useShop();
+  const { addToCart, toggleWishlist, isWishlisted, products } = useShop();
+  const product = products.find(p => p.id === productId);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
@@ -54,7 +52,7 @@ function ProductDetailsPage() {
   const off = discountPercent(product);
   const wished = isWishlisted(product.id);
   const inStock = product.stock > 0;
-  const related = relatedProducts(product, 4);
+  const related = products.filter(x => x.category === product.category && x.id !== product.id).slice(0, 4);
   const img = productImage(product);
 
   const thumbnails = [img, img, img, img];

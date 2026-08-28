@@ -9,9 +9,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import {
-  products as allProducts,
-  categories,
-  searchProducts,
   productImage,
   discountPercent,
   type CategorySlug,
@@ -36,7 +33,7 @@ const sortOptions: { key: SortKey; label: string }[] = [
   { key: "rating", label: "রেটিং" },
 ];
 
-function sortProducts(list: ReturnType<typeof searchProducts>, sort: SortKey) {
+function sortProducts(list: Product[], sort: SortKey) {
   const sorted = [...list];
   switch (sort) {
     case "new":
@@ -169,13 +166,14 @@ function ProductListItem({ product }: { product: Product }) {
 }
 
 function ProductsPage() {
+  const { products: allProducts, categories } = useShop();
   const searchParams = Route.useSearch();
   const navigate = useNavigate();
   const params = parseSearch(searchParams);
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = useMemo(() => {
-    let list = searchProducts(params.q);
+    let list = allProducts.filter(p => p.name.toLowerCase().includes(params.q.toLowerCase()) || p.brand.toLowerCase().includes(params.q.toLowerCase()));
     if (params.category) {
       list = list.filter((p) => p.category === params.category);
     }

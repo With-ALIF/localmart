@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Clock, Zap, ArrowRight } from "lucide-react";
-import { byTag } from "@/data/catalog";
+import { useShop } from "@/lib/shop-store";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { SectionHeading } from "@/components/shop/ProductGrid";
 import { toBnNumber } from "@/lib/format";
@@ -68,7 +68,8 @@ function FlashSaleBanner() {
 }
 
 function OffersPage() {
-  const offers = byTag("offer");
+  const { products } = useShop();
+  const offers = products.filter(p => p.tags.includes("offer"));
 
   return (
     <div className="container-page py-6 sm:py-8">

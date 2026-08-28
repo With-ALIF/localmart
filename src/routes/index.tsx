@@ -9,7 +9,7 @@ import {
   Zap,
   Clock,
 } from "lucide-react";
-import { categories, byTag, productCountByCategory, products } from "@/data/catalog";
+import { useShop } from "@/lib/shop-store";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ProductGrid, SectionHeading } from "@/components/shop/ProductGrid";
 import { toBnNumber } from "@/lib/format";
@@ -141,7 +141,7 @@ function TrustBadges() {
   );
 }
 
-function CategorySection() {
+function CategorySection({ categories, products }: { categories: any[]; products: any[] }) {
   return (
     <section className="container-page mt-10">
       <SectionHeading
@@ -162,7 +162,7 @@ function CategorySection() {
             </span>
             <span className="text-[11px] font-bold sm:text-xs">{c.name}</span>
             <span className="text-[10px] text-muted-foreground">
-              {toBnNumber(productCountByCategory(c.slug))}টি
+              {toBnNumber(products.filter(p => p.category === c.slug).length)}টি
             </span>
           </Link>
         ))}
@@ -242,8 +242,8 @@ function FlashSaleBanner() {
   );
 }
 
-function OffersSection() {
-  const offers = byTag("offer", 8);
+function OffersSection({ products }: { products: any[] }) {
+  const offers = products.filter(p => p.tags.includes("offer")).slice(0, 8);
   if (!offers.length) return null;
 
   return (
@@ -266,8 +266,8 @@ function OffersSection() {
   );
 }
 
-function PopularSection() {
-  const popular = byTag("popular", 8);
+function PopularSection({ products }: { products: any[] }) {
+  const popular = products.filter(p => p.tags.includes("popular")).slice(0, 8);
   if (!popular.length) return null;
 
   return (
@@ -282,8 +282,8 @@ function PopularSection() {
   );
 }
 
-function NewArrivalsSection() {
-  const newItems = byTag("new", 8);
+function NewArrivalsSection({ products }: { products: any[] }) {
+  const newItems = products.filter(p => p.tags.includes("new")).slice(0, 8);
   if (!newItems.length) return null;
 
   return (
@@ -298,8 +298,8 @@ function NewArrivalsSection() {
   );
 }
 
-function FeaturedSection() {
-  const featured = byTag("featured", 8);
+function FeaturedSection({ products }: { products: any[] }) {
+  const featured = products.filter(p => p.tags.includes("featured")).slice(0, 8);
   if (!featured.length) return null;
 
   return (
@@ -314,7 +314,7 @@ function FeaturedSection() {
   );
 }
 
-function BestSellersSection() {
+function BestSellersSection({ products }: { products: any[] }) {
   const bestSellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
 
   return (
@@ -330,17 +330,27 @@ function BestSellersSection() {
 }
 
 function HomePage() {
+  const { products, categories, loading } = useShop();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-0 pb-20 md:pb-0">
       <HeroBanner />
       <TrustBadges />
-      <CategorySection />
+      <CategorySection categories={categories} products={products} />
       <FlashSaleBanner />
-      <PopularSection />
-      <NewArrivalsSection />
-      <OffersSection />
-      <FeaturedSection />
-      <BestSellersSection />
+      <PopularSection products={products} />
+      <NewArrivalsSection products={products} />
+      <OffersSection products={products} />
+      <FeaturedSection products={products} />
+      <BestSellersSection products={products} />
     </div>
   );
 }

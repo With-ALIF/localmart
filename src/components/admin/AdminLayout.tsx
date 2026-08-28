@@ -1,3 +1,4 @@
+'use client';
 import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
@@ -22,7 +23,14 @@ import {
 import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { cn } from "@/lib/utils";
 
-const sidebarLinks = [
+type SidebarLink = {
+  to: string;
+  label: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  placeholder?: boolean;
+};
+
+const sidebarLinks: readonly SidebarLink[] = [
   { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/categories", label: "Categories", icon: FolderTree },
@@ -33,7 +41,7 @@ const sidebarLinks = [
   { to: "/admin/reviews", label: "Reviews", icon: Star, placeholder: true },
   { to: "/admin/reports", label: "Reports", icon: BarChart3, placeholder: true },
   { to: "/admin/settings", label: "Settings", icon: Settings },
-] as const;
+];
 
 export function AdminLayout({ children }: { children?: ReactNode }) {
   const { adminUser, adminLogout } = useAdminAuth();

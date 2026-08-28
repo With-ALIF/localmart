@@ -7,11 +7,13 @@ import { useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { productImage, discountPercent, categoryName } from "@/data/catalog";
+import { useShop } from "@/lib/shop-store";
 import { cn } from "@/lib/utils";
 
 function ProductListPage() {
   const { isAdminAuthenticated } = useAdminAuth();
-  const { products, categories, deleteProduct } = useData();
+  const { deleteProduct } = useData();
+  const { products, categories } = useShop();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("");
   const [stockFilter, setStockFilter] = useState("");
@@ -25,7 +27,7 @@ function ProductListPage() {
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.brand.toLowerCase().includes(q) ||
-          categoryName(p.category).toLowerCase().includes(q),
+          categoryName(p.category, categories).toLowerCase().includes(q),
       );
     }
     if (catFilter) list = list.filter((p) => p.category === catFilter);
@@ -143,7 +145,7 @@ function ProductListPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {categoryName(p.category)}
+                        {categoryName(p.category, categories)}
                       </td>
                       <td className="px-4 py-3">
                         <span className="font-semibold">{formatTaka(p.price)}</span>

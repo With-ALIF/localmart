@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart, ShoppingCart, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useShop } from "@/lib/shop-store";
-import { products, productImage, discountPercent } from "@/data/catalog";
+import { productImage, discountPercent } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 
 function WishlistPage() {
-  const { wishlist, toggleWishlist, removeFromWishlist, addToCart, wishlistCount } = useShop();
+  const { wishlist, toggleWishlist, removeFromWishlist, addToCart, wishlistCount, products } = useShop();
 
   const wishlistProducts = wishlist
     .map((id) => products.find((p) => p.id === id))

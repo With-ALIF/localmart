@@ -7,13 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  products as seedProducts,
-  categories as seedCategories,
-  type Product,
-  type Category,
-  type CategorySlug,
-} from "@/data/catalog";
+import type { Product, Category, CategorySlug } from "@/data/catalog";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const PRODUCTS_KEY = "patgram_products";
 const CATEGORIES_KEY = "patgram_categories";
@@ -172,97 +167,266 @@ function readList<T>(key: string, fallback: T): T {
 function seedIfNeeded() {
   if (typeof window === "undefined") return;
   if (!window.localStorage.getItem(PRODUCTS_KEY)) {
-    window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(seedProducts));
+    window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify([]));
   }
   if (!window.localStorage.getItem(CATEGORIES_KEY)) {
-    window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(seedCategories));
+    window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify([]));
   }
   if (!window.localStorage.getItem(ORDERS_KEY)) {
     window.localStorage.setItem(ORDERS_KEY, JSON.stringify(seedOrders));
   }
 }
 
+function mapProductFromDb(row: any): Product {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || "",
+    details: row.details || "",
+    category: row.category || "",
+    price: row.price || 0,
+    oldPrice: row.old_price || 0,
+    rating: row.rating || 0,
+    reviews: row.reviews || 0,
+    stock: row.stock || 0,
+    unit: row.unit || "",
+    brand: row.brand || "",
+    image: row.image || undefined,
+    tags: (row.tags || []) as Product["tags"],
+  };
+}
+
+function mapProductToDb(p: Product) {
+  return {
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    details: p.details,
+    category: p.category,
+    price: p.price,
+    old_price: p.oldPrice,
+    rating: p.rating,
+    reviews: p.reviews,
+    stock: p.stock,
+    unit: p.unit,
+    brand: p.brand,
+    image: p.image || null,
+    tags: p.tags,
+  };
+}
+
+function mapCategoryFromDb(row: any): Category {
+  return {
+    slug: row.slug,
+    name: row.name,
+    icon: row.icon || "",
+    image: row.image || "",
+  };
+}
+
+function mapCategoryToDb(c: Category) {
+  return {
+    slug: c.slug,
+    name: c.name,
+    icon: c.icon,
+    image: c.image,
+  };
+}
+
+function mapOrderFromDb(row: any, items: { productId: string; name: string; price: number; qty: number }[]): Order {
+  return {
+    id: row.order_number || row.id,
+    customer: row.customer_name,
+    phone: row.customer_phone,
+    address: row.address || "",
+    items,
+    total: row.total_amount || 0,
+    payment: row.payment_method || "",
+    status: row.status as Order["status"],
+    date: row.created_at ? row.created_at.slice(0, 10) : "",
+  };
+}
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>(() =>
-    readList<Product[]>(PRODUCTS_KEY, seedProducts),
+    readList<Product[]>(PRODUCTS_KEY, []),
   );
   const [categories, setCategories] = useState<Category[]>(() =>
-    readList<Category[]>(CATEGORIES_KEY, seedCategories),
+    readList<Category[]>(CATEGORIES_KEY, []),
   );
   const [orders, setOrders] = useState<Order[]>(() => readList<Order[]>(ORDERS_KEY, seedOrders));
 
   useEffect(() => {
-    seedIfNeeded();
-    setProducts(readList<Product[]>(PRODUCTS_KEY, seedProducts));
-    setCategories(readList<Category[]>(CATEGORIES_KEY, seedCategories));
-    setOrders(readList<Order[]>(ORDERS_KEY, seedOrders));
+    if (!isSupabaseConfigured) {
+      seedIfNeeded();
+      setProducts(readList<Product[]>(PRODUCTS_KEY, []));
+      setCategories(readList<Category[]>(CATEGORIES_KEY, []));
+      setOrders(readList<Order[]>(ORDERS_KEY, seedOrders));
+      return;
+    }
+
+    async function fetchData() {
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true);
+
+      const { data: categoriesData } = await supabase
+        .from("categories")
+        .select("*")
+        .order("sort_order");
+
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("order_source", "online")
+        .order("created_at", { ascending: false });
+
+      if (productsData) {
+        setProducts(productsData.map(mapProductFromDb));
+      }
+      if (categoriesData) {
+        setCategories(categoriesData.map(mapCategoryFromDb));
+      }
+      if (ordersData) {
+        const mappedOrders: Order[] = [];
+        for (const row of ordersData) {
+          const { data: itemsData } = await supabase
+            .from("order_items")
+            .select("*")
+            .eq("order_id", row.id);
+
+          const items = (itemsData || []).map((item: any) => ({
+            productId: item.product_id || "",
+            name: item.product_name,
+            price: item.unit_price,
+            qty: item.quantity,
+          }));
+
+          mappedOrders.push(mapOrderFromDb(row, items));
+        }
+        setOrders(mappedOrders);
+      }
+    }
+
+    fetchData();
   }, []);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (!isSupabaseConfigured && typeof window !== "undefined")
       window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  }, [products]);
+  }, [products, isSupabaseConfigured]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (!isSupabaseConfigured && typeof window !== "undefined")
       window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
-  }, [categories]);
+  }, [categories, isSupabaseConfigured]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (!isSupabaseConfigured && typeof window !== "undefined")
       window.localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-  }, [orders]);
+  }, [orders, isSupabaseConfigured]);
 
-  const addProduct = useCallback((p: Product) => {
-    setProducts((prev) => {
-      const next = [...prev, p];
-      if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-  const updateProduct = useCallback((id: string, data: Partial<Product>) => {
-    setProducts((prev) => {
-      const next = prev.map((p) => (p.id === id ? { ...p, ...data } : p));
-      if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-  const deleteProduct = useCallback((id: string) => {
-    setProducts((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
-      return next;
-    });
+  const addProduct = useCallback(async (p: Product) => {
+    if (isSupabaseConfigured) {
+      const dbProduct = mapProductToDb(p);
+      const { error } = await supabase.from("products").insert(dbProduct);
+      if (error) {
+        console.error("Failed to add product:", error);
+        return;
+      }
+    }
+    setProducts((prev) => [...prev, p]);
   }, []);
 
-  const addCategory = useCallback((c: Category) => {
-    setCategories((prev) => {
-      const next = [...prev, c];
-      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-  const updateCategory = useCallback((slug: CategorySlug, data: Partial<Category>) => {
-    setCategories((prev) => {
-      const next = prev.map((c) => (c.slug === slug ? { ...c, ...data } : c));
-      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
-  const deleteCategory = useCallback((slug: CategorySlug) => {
-    setCategories((prev) => {
-      const next = prev.filter((c) => c.slug !== slug);
-      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
+  const updateProduct = useCallback(async (id: string, data: Partial<Product>) => {
+    if (isSupabaseConfigured) {
+      const dbData: any = {};
+      if (data.name !== undefined) dbData.name = data.name;
+      if (data.description !== undefined) dbData.description = data.description;
+      if (data.details !== undefined) dbData.details = data.details;
+      if (data.category !== undefined) dbData.category = data.category;
+      if (data.price !== undefined) dbData.price = data.price;
+      if (data.oldPrice !== undefined) dbData.old_price = data.oldPrice;
+      if (data.rating !== undefined) dbData.rating = data.rating;
+      if (data.reviews !== undefined) dbData.reviews = data.reviews;
+      if (data.stock !== undefined) dbData.stock = data.stock;
+      if (data.unit !== undefined) dbData.unit = data.unit;
+      if (data.brand !== undefined) dbData.brand = data.brand;
+      if (data.image !== undefined) dbData.image = data.image || null;
+      if (data.tags !== undefined) dbData.tags = data.tags;
+
+      const { error } = await supabase.from("products").update(dbData).eq("id", id);
+      if (error) {
+        console.error("Failed to update product:", error);
+        return;
+      }
+    }
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
   }, []);
 
-  const updateOrderStatus = useCallback((id: string, status: Order["status"]) => {
-    setOrders((prev) => {
-      const next = prev.map((o) => (o.id === id ? { ...o, status } : o));
-      if (typeof window !== "undefined") window.localStorage.setItem(ORDERS_KEY, JSON.stringify(next));
-      return next;
-    });
+  const deleteProduct = useCallback(async (id: string) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("products").delete().eq("id", id);
+      if (error) {
+        console.error("Failed to delete product:", error);
+        return;
+      }
+    }
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const addCategory = useCallback(async (c: Category) => {
+    if (isSupabaseConfigured) {
+      const dbCategory = mapCategoryToDb(c);
+      const { error } = await supabase.from("categories").insert(dbCategory);
+      if (error) {
+        console.error("Failed to add category:", error);
+        return;
+      }
+    }
+    setCategories((prev) => [...prev, c]);
+  }, []);
+
+  const updateCategory = useCallback(async (slug: CategorySlug, data: Partial<Category>) => {
+    if (isSupabaseConfigured) {
+      const dbData: any = {};
+      if (data.name !== undefined) dbData.name = data.name;
+      if (data.icon !== undefined) dbData.icon = data.icon;
+      if (data.image !== undefined) dbData.image = data.image;
+
+      const { error } = await supabase.from("categories").update(dbData).eq("slug", slug);
+      if (error) {
+        console.error("Failed to update category:", error);
+        return;
+      }
+    }
+    setCategories((prev) => prev.map((c) => (c.slug === slug ? { ...c, ...data } : c)));
+  }, []);
+
+  const deleteCategory = useCallback(async (slug: CategorySlug) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from("categories").delete().eq("slug", slug);
+      if (error) {
+        console.error("Failed to delete category:", error);
+        return;
+      }
+    }
+    setCategories((prev) => prev.filter((c) => c.slug !== slug));
+  }, []);
+
+  const updateOrderStatus = useCallback(async (id: string, status: Order["status"]) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from("orders")
+        .update({ status })
+        .eq("order_number", id);
+      if (error) {
+        console.error("Failed to update order status:", error);
+        return;
+      }
+    }
+    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
   }, []);
 
   const totalSales = useMemo(() => orders.reduce((sum, o) => sum + o.total, 0), [orders]);

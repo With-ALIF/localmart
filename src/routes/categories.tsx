@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { categories, productCountByCategory } from "@/data/catalog";
+import { useShop } from "@/lib/shop-store";
 
 function CategoriesPage() {
+  const { products, categories } = useShop();
+
   return (
     <div className="pb-20 md:pb-0">
       <div className="container-page py-6 sm:py-8">
@@ -28,7 +30,7 @@ function CategoriesPage() {
                 <div className="absolute bottom-0 left-0 p-4">
                   <h3 className="text-lg font-bold text-white">{c.name}</h3>
                   <p className="text-xs text-white/80">
-                    {toBnNumber(productCountByCategory(c.slug))}টি পণ্য
+                    {toBnNumber(products.filter(p => p.category === c.slug).length)}টি পণ্য
                   </p>
                 </div>
               </div>

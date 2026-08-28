@@ -36,10 +36,8 @@ import { useAuth } from "@/lib/auth-store";
 import { useShop } from "@/lib/shop-store";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { products, productImage } from "@/data/catalog";
-
-const ORDERS_KEY = "patgram_orders";
-const ADDRESSES_KEY = "patgram_addresses";
+import { productImage, type Product } from "@/data/catalog";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type Tab =
   | "overview"
@@ -89,16 +87,6 @@ const paymentLabels: Record<string, string> = {
   Nagad: "Nagad",
 };
 
-function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function writeJson<T>(key: string, value: T) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(key, JSON.stringify(value));
@@ -117,7 +105,7 @@ const sidebarItems: { tab: Tab; label: string; icon: typeof User }[] = [
 
 function AccountPage() {
   const { user, logout, hydrated } = useAuth();
-  const { cartItems, cartCount, wishlistCount, wishlist, removeFromWishlist, addToCart, clearCart } = useShop();
+  const { products, cartItems, cartCount, wishlistCount, wishlist, removeFromWishlist, addToCart, clearCart } = useShop();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -129,9 +117,76 @@ function AccountPage() {
   const [profileForm, setProfileForm] = useState({ name: "", email: "", phone: "" });
 
   useEffect(() => {
-    setAllOrders(readJson<Order[]>(ORDERS_KEY, []));
-    setAddresses(readJson<Address[]>(ADDRESSES_KEY, []));
-  }, []);
+    if (!user) return;
+
+    if (isSupabaseConfigured) {
+      (async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user.id;
+        if (!uid) return;
+
+        const { data: addrRows } = await supabase
+          .from("addresses")
+          .select("*")
+          .eq("user_id", uid);
+        if (addrRows) {
+          setAddresses(
+            addrRows.map((a) => ({
+              id: a.id,
+              label: a.label,
+              name: a.name,
+              phone: a.phone,
+              address: a.address,
+              isDefault: a.is_default,
+            })),
+          );
+        }
+
+        const { data: orderRows } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("user_id", uid)
+          .eq("order_source", "online");
+        if (orderRows) {
+          const orders: Order[] = [];
+          for (const o of orderRows) {
+            const { data: itemRows } = await supabase
+              .from("order_items")
+              .select("*")
+              .eq("order_id", o.id);
+            orders.push({
+              id: o.order_number,
+              customer: o.customer_name,
+              phone: o.customer_phone,
+              address: o.address || "",
+              email: o.customer_email || "",
+              items: (itemRows || []).map((i) => ({
+                productId: i.product_id || "",
+                name: i.product_name,
+                price: i.unit_price,
+                qty: i.quantity,
+              })),
+              total: o.total_amount,
+              payment: o.payment_method,
+              status: o.status as Order["status"],
+              date: o.created_at?.slice(0, 10) || "",
+            });
+          }
+          setAllOrders(orders);
+        }
+      })();
+    } else {
+      try {
+        const rawOrders = window.localStorage.getItem("patgram_orders");
+        setAllOrders(rawOrders ? JSON.parse(rawOrders) : []);
+        const rawAddrs = window.localStorage.getItem("patgram_addresses");
+        setAddresses(rawAddrs ? JSON.parse(rawAddrs) : []);
+      } catch {
+        setAllOrders([]);
+        setAddresses([]);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -150,18 +205,75 @@ function AccountPage() {
   const completedOrders = sortedOrders.filter((o) => o.status === "delivered").length;
   const wishlistProducts = wishlist
     .map((id) => products.find((p) => p.id === id))
-    .filter(Boolean) as typeof products;
+    .filter(Boolean) as Product[];
 
-  const saveAddresses = (addrs: Address[]) => {
+  const saveAddresses = async (addrs: Address[]) => {
     setAddresses(addrs);
-    writeJson(ADDRESSES_KEY, addrs);
+
+    if (!isSupabaseConfigured) {
+      writeJson("patgram_addresses", addrs);
+      return;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const uid = session?.user.id;
+    if (!uid) return;
+
+    const existingIds = addresses.map((a) => a.id);
+    const newIds = addrs.map((a) => a.id);
+
+    const toDelete = existingIds.filter((id) => !newIds.includes(id));
+    if (toDelete.length > 0) {
+      await supabase.from("addresses").delete().in("id", toDelete);
+    }
+
+    for (const a of addrs) {
+      if (existingIds.includes(a.id)) {
+        await supabase
+          .from("addresses")
+          .update({
+            label: a.label,
+            name: a.name,
+            phone: a.phone,
+            address: a.address,
+            is_default: a.isDefault,
+          })
+          .eq("id", a.id);
+      } else {
+        await supabase.from("addresses").insert({
+          id: a.id,
+          user_id: uid,
+          label: a.label,
+          name: a.name,
+          phone: a.phone,
+          address: a.address,
+          is_default: a.isDefault,
+        });
+      }
+    }
   };
 
-  const saveProfile = () => {
+  const saveProfile = async () => {
     if (!profileForm.name || !profileForm.email) return;
-    const updated = { ...user!, name: profileForm.name, email: profileForm.email, phone: profileForm.phone };
-    writeJson("shobuj-bazar-auth", { isAuthenticated: true, user: updated });
-    window.location.reload();
+
+    if (isSupabaseConfigured) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user.id;
+      if (uid) {
+        await supabase
+          .from("profiles")
+          .update({
+            name: profileForm.name,
+            phone: profileForm.phone,
+          })
+          .eq("id", uid);
+      }
+      window.location.reload();
+    } else {
+      const updated = { ...user!, name: profileForm.name, email: profileForm.email, phone: profileForm.phone };
+      writeJson("patgram-auth", { isAuthenticated: true, user: updated });
+      window.location.reload();
+    }
     setEditingProfile(false);
   };
 
@@ -676,7 +788,7 @@ function WishlistTab({
   removeFromWishlist,
   addToCart,
 }: {
-  products: typeof products;
+  products: Product[];
   removeFromWishlist: (id: string) => void;
   addToCart: (id: string) => void;
 }) {
@@ -739,7 +851,7 @@ function CartTab({
   cartItems,
   clearCart,
 }: {
-  cartItems: { product: typeof products[0]; qty: number }[];
+  cartItems: { product: Product; qty: number }[];
   clearCart: () => void;
 }) {
   if (cartItems.length === 0) {

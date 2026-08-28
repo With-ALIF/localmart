@@ -6,9 +6,7 @@ import { useAuth } from "@/lib/auth-store";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { productImage, discountPercent } from "@/data/catalog";
 import { toast } from "sonner";
-
-const ORDERS_KEY = "patgram_orders";
-const ADDRESSES_KEY = "patgram_addresses";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type SavedAddress = {
   id: string;
@@ -18,16 +16,6 @@ type SavedAddress = {
   address: string;
   isDefault: boolean;
 };
-
-function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 function CheckoutPage() {
   const { cartItems, subtotal, discount, total, cartCount, clearCart } = useShop();
@@ -43,23 +31,61 @@ function CheckoutPage() {
   const [showNewForm, setShowNewForm] = useState(false);
 
   useEffect(() => {
-    const addrs = readJson<SavedAddress[]>(ADDRESSES_KEY, []);
-    setSavedAddresses(addrs);
-    const defaultAddr = addrs.find((a) => a.isDefault);
-    if (defaultAddr) {
-      setSelectedAddrId(defaultAddr.id);
-      setName(defaultAddr.name);
-      setPhone(defaultAddr.phone);
-      setAddress(defaultAddr.address);
-    } else if (addrs.length > 0) {
-      setSelectedAddrId(addrs[0].id);
-      setName(addrs[0].name);
-      setPhone(addrs[0].phone);
-      setAddress(addrs[0].address);
+    async function loadAddresses() {
+      if (isSupabaseConfigured) {
+        const userId = user && "id" in user ? (user as { id: string }).id : null;
+        if (!userId) return;
+        const { data } = await supabase
+          .from("addresses")
+          .select("*")
+          .eq("user_id", userId);
+        if (data) {
+          const mapped: SavedAddress[] = data.map((a) => ({
+            id: a.id,
+            label: a.label,
+            name: a.name,
+            phone: a.phone,
+            address: a.address,
+            isDefault: a.is_default,
+          }));
+          setSavedAddresses(mapped);
+          const defaultAddr = mapped.find((a) => a.isDefault);
+          if (defaultAddr) {
+            setSelectedAddrId(defaultAddr.id);
+            setName(defaultAddr.name);
+            setPhone(defaultAddr.phone);
+            setAddress(defaultAddr.address);
+          } else if (mapped.length > 0) {
+            setSelectedAddrId(mapped[0].id);
+            setName(mapped[0].name);
+            setPhone(mapped[0].phone);
+            setAddress(mapped[0].address);
+          }
+        }
+      } else {
+        try {
+          const raw = window.localStorage.getItem("patgram_addresses");
+          const addrs: SavedAddress[] = raw ? JSON.parse(raw) : [];
+          setSavedAddresses(addrs);
+          const defaultAddr = addrs.find((a) => a.isDefault);
+          if (defaultAddr) {
+            setSelectedAddrId(defaultAddr.id);
+            setName(defaultAddr.name);
+            setPhone(defaultAddr.phone);
+            setAddress(defaultAddr.address);
+          } else if (addrs.length > 0) {
+            setSelectedAddrId(addrs[0].id);
+            setName(addrs[0].name);
+            setPhone(addrs[0].phone);
+            setAddress(addrs[0].address);
+          }
+        } catch {}
+      }
     }
-  }, []);
+    loadAddresses();
+  }, [user]);
 
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (!name.trim()) {
       toast.error("পুরো নাম দিন");
       return;
@@ -73,30 +99,86 @@ function CheckoutPage() {
       return;
     }
 
-    const order = {
-      id: `ORD-${Date.now()}`,
-      customer: name.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      email: user?.email || "",
-      items: cartItems.map(({ product, qty }) => ({
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        qty,
-      })),
-      total,
-      payment: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
-      status: "pending" as const,
-      date: new Date().toISOString().split("T")[0],
-    };
+    const timestamp = Date.now();
+    const orderNumber = "ORD-" + timestamp;
 
-    try {
-      const raw = window.localStorage.getItem(ORDERS_KEY);
-      const existing = raw ? JSON.parse(raw) : [];
-      existing.push(order);
-      window.localStorage.setItem(ORDERS_KEY, JSON.stringify(existing));
-    } catch {}
+    if (isSupabaseConfigured) {
+      const userId = user && "id" in user ? (user as { id: string }).id : null;
+
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          order_number: orderNumber,
+          user_id: userId ?? undefined,
+          order_source: "online",
+          customer_name: name.trim(),
+          customer_phone: phone.trim(),
+          customer_email: user?.email || "",
+          address: address.trim(),
+          subtotal,
+          discount_amount: discount,
+          total_amount: total,
+          paid_amount: 0,
+          due_amount: total,
+          payment_method: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
+          payment_status: "pending",
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        toast.error("অর্ডার দেওয়া যায়নি", { description: orderError.message });
+        return;
+      }
+
+      const orderItems = cartItems.map(({ product, qty }) => ({
+        order_id: orderData.id,
+        product_id: product.id,
+        product_name: product.name,
+        unit_price: product.price,
+        quantity: qty,
+        subtotal: product.price * qty,
+      }));
+
+      const { error: itemsError } = await supabase.from("order_items").insert(orderItems);
+      if (itemsError) {
+        toast.error("অর্ডার আইটেম সংরক্ষণ করা যায়নি", { description: itemsError.message });
+        return;
+      }
+
+      for (const { product, qty } of cartItems) {
+        await supabase
+          .from("products")
+          .update({ stock: Math.max(0, (product.stock ?? 0) - qty) })
+          .eq("id", product.id);
+      }
+    } else {
+      const order = {
+        id: orderNumber,
+        customer: name.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+        email: user?.email || "",
+        items: cartItems.map(({ product, qty }) => ({
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          qty,
+        })),
+        total,
+        payment: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
+        status: "pending" as const,
+        date: new Date().toISOString().split("T")[0],
+      };
+
+      try {
+        const raw = window.localStorage.getItem("patgram_orders");
+        const existing = raw ? JSON.parse(raw) : [];
+        existing.push(order);
+        window.localStorage.setItem("patgram_orders", JSON.stringify(existing));
+      } catch {}
+    }
 
     clearCart();
     setConfirmed(true);

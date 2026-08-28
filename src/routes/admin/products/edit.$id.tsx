@@ -4,6 +4,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { useData } from "@/lib/admin/admin-data";
+import { useShop } from "@/lib/shop-store";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import type { CategorySlug } from "@/data/catalog";
 
@@ -64,29 +65,37 @@ function EditProductContent() {
       tags: prev.tags.includes(tag) ? prev.tags.filter((t) => t !== tag) : [...prev.tags, tag],
     }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { refreshProducts } = useShop();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.category || !form.price) {
       toast.error("Please fill required fields");
       return;
     }
-    updateProduct(id, {
-      name: form.name,
-      description: form.description,
-      details: form.details,
-      category: form.category as CategorySlug,
-      price: Number(form.price),
-      oldPrice: Number(form.oldPrice) || Number(form.price),
-      stock: Number(form.stock) || 0,
-      unit: form.unit || "১ পিস",
-      brand: form.brand || "Patgram",
-      image: form.image || undefined,
-      rating: Number(form.rating) || 4.5,
-      reviews: Number(form.reviews) || 0,
-      tags: form.tags as any,
-    });
-    toast.success("Product updated!", { description: form.name });
-    navigate({ to: "/admin/products" });
+    try {
+      await updateProduct(id, {
+        name: form.name,
+        description: form.description,
+        details: form.details,
+        category: form.category as CategorySlug,
+        price: Number(form.price),
+        oldPrice: Number(form.oldPrice) || Number(form.price),
+        stock: Number(form.stock) || 0,
+        unit: form.unit || "১ পিস",
+        brand: form.brand || "Patgram",
+        image: form.image || undefined,
+        rating: Number(form.rating) || 4.5,
+        reviews: Number(form.reviews) || 0,
+        tags: form.tags as any,
+      });
+      await refreshProducts();
+      toast.success("Product updated!", { description: form.name });
+      navigate({ to: "/admin/products" });
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to update product");
+    }
   };
 
   return (

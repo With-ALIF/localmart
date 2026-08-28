@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Package,
   Clock,
@@ -13,10 +13,9 @@ import {
   CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const ORDERS_KEY = "patgram_orders";
 
 type Order = {
   id: string;
@@ -50,27 +49,69 @@ const paymentLabels: Record<string, string> = {
   Nagad: "Nagad",
 };
 
+const ORDERS_KEY = "patgram_orders";
+
 function OrdersPage() {
   const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [sortedOrders, setSortedOrders] = useState<Order[]>([]);
 
-  const allOrders: Order[] = (() => {
-    try {
-      if (typeof window === "undefined") return [];
-      const raw = window.localStorage.getItem(ORDERS_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
+  useEffect(() => {
+    async function loadOrders() {
+      if (!user) return;
+
+      if (isSupabaseConfigured && user.id) {
+        const { data: ordersData } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("order_source", "online");
+
+        if (ordersData) {
+          const ordersWithItems: Order[] = await Promise.all(
+            ordersData.map(async (order) => {
+              const { data: itemsData } = await supabase
+                .from("order_items")
+                .select("*")
+                .eq("order_id", order.id);
+
+              return {
+                id: order.id,
+                customer: order.customer_name || "",
+                phone: order.phone || "",
+                address: order.address || "",
+                email: order.email || "",
+                items: (itemsData || []).map((item) => ({
+                  productId: item.product_id,
+                  name: item.product_name,
+                  price: item.price,
+                  qty: item.quantity,
+                })),
+                total: order.total || 0,
+                payment: order.payment_method || "COD",
+                status: order.status || "pending",
+                date: order.created_at || "",
+              };
+            }),
+          );
+          setSortedOrders(ordersWithItems.sort((a, b) => b.date.localeCompare(a.date)));
+        }
+      } else {
+        try {
+          if (typeof window === "undefined") return;
+          const raw = window.localStorage.getItem(ORDERS_KEY);
+          const allOrders: Order[] = raw ? JSON.parse(raw) : [];
+          const myOrders = allOrders.filter(
+            (o) => o.email === user.email || o.phone === user.phone || o.customer === user.name,
+          );
+          setSortedOrders(myOrders.sort((a, b) => b.date.localeCompare(a.date)));
+        } catch {
+          setSortedOrders([]);
+        }
+      }
     }
-  })();
-
-  const myOrders = user
-    ? allOrders.filter(
-        (o) => o.email === user.email || o.phone === user.phone || o.customer === user.name,
-      )
-    : [];
-
-  const sortedOrders = [...myOrders].sort((a, b) => b.date.localeCompare(a.date));
+    loadOrders();
+  }, [user]);
 
   if (!user) {
     return (

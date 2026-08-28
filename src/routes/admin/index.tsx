@@ -21,18 +21,18 @@ function AdminLoginInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!email || !password) {
+    if (!email.trim() || !password) {
       setError("Email এবং Password দিন");
       return;
     }
     setLoading(true);
-    const ok = await adminLogin(email, password);
+    const res = await adminLogin(email, password);
     setLoading(false);
-    if (ok) {
+    if (res.success) {
       toast.success("Admin login successful!");
       navigate({ to: "/admin/dashboard", replace: true });
     } else {
-      setError("ভুল credentials। আবার চেষ্টা করুন।");
+      setError(res.error || "ভুল credentials। আবার চেষ্টা করুন।");
     }
   };
 

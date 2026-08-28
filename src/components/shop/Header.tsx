@@ -15,7 +15,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { toBnNumber, formatTaka } from "@/lib/format";
-import { searchProducts, productImage } from "@/data/catalog";
+import { productImage } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -35,7 +35,7 @@ function CountBadge({ count }: { count: number }) {
 }
 
 export function Header() {
-  const { cartCount, wishlistCount } = useShop();
+  const { cartCount, wishlistCount, products } = useShop();
   const { user, logout, hydrated } = useAuth();
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
@@ -45,8 +45,8 @@ export function Header() {
 
   const suggestions = useMemo(() => {
     if (!term.trim() || term.trim().length < 2) return [];
-    return searchProducts(term.trim()).slice(0, 5);
-  }, [term]);
+    return products.filter(p => p.name.toLowerCase().includes(term.toLowerCase()) || p.brand.toLowerCase().includes(term.toLowerCase())).slice(0, 5);
+  }, [term, products]);
 
   const showSuggestions = focused && suggestions.length > 0;
 
@@ -78,7 +78,7 @@ export function Header() {
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <img
             src="/localmart.png"
-            alt="সবুজ বাজার লোগো"
+            alt="Patgram Online Shop"
             className="h-9 w-auto object-contain sm:h-10"
           />
         </Link>

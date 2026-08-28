@@ -105,7 +105,7 @@ export function Footer() {
 
       <div className="border-t border-border">
         <div className="container-page flex flex-col items-center justify-between gap-3 py-5 sm:flex-row">
-          <p className="text-xs text-muted-foreground">© ২০২৬ সবুজ বাজার। সর্বস্বত্ব সংরক্ষিত।</p>
+          <p className="text-xs text-muted-foreground">© ২০২৬ Patgram Online Shop। সর্বস্বত্ব সংরক্ষিত।</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
             <a href="#" className="transition hover:text-primary">
               প্রাইভেসি

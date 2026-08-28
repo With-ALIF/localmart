@@ -14,6 +14,8 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { ShopProvider } from "../lib/shop-store";
 import { AuthProvider } from "../lib/auth-store";
+import { AdminAuthProvider } from "../lib/admin/admin-auth";
+import { DataProvider } from "../lib/admin/admin-data";
 import { Header } from "../components/shop/Header";
 import { Footer } from "../components/shop/Footer";
 import { MobileBottomNav } from "../components/shop/MobileBottomNav";
@@ -137,17 +139,21 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <ShopProvider>
-          <div className="min-h-screen">
-            {!isAdmin && <Header />}
-            <main>
-              <Outlet />
-            </main>
-            {!isAdmin && <Footer />}
-            {!isAdmin && <MobileBottomNav />}
-          </div>
-          <Toaster position="top-center" richColors />
-        </ShopProvider>
+        <AdminAuthProvider>
+          <DataProvider>
+            <ShopProvider>
+              <div className="min-h-screen">
+                {!isAdmin && <Header />}
+                <main>
+                  <Outlet />
+                </main>
+                {!isAdmin && <Footer />}
+                {!isAdmin && <MobileBottomNav />}
+              </div>
+              <Toaster position="top-center" richColors />
+            </ShopProvider>
+          </DataProvider>
+        </AdminAuthProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

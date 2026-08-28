@@ -22,8 +22,7 @@ import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-
-const SETTINGS_KEY = "patgram_settings";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type Settings = {
   storeName: string;
@@ -63,21 +62,6 @@ const defaultSettings: Settings = {
   adminEmail: "admin@patgram.com",
 };
 
-function readSettings(): Settings {
-  if (typeof window === "undefined") return defaultSettings;
-  try {
-    const raw = window.localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
-  } catch {
-    return defaultSettings;
-  }
-}
-
-function writeSettings(s: Settings) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
-}
-
 type Tab = "store" | "profile" | "notifications" | "shipping" | "security";
 
 const tabs: { id: Tab; label: string; icon: typeof Store }[] = [
@@ -90,12 +74,35 @@ const tabs: { id: Tab; label: string; icon: typeof Store }[] = [
 
 function SettingsContent() {
   const { isAdminAuthenticated, adminUser } = useAdminAuth();
-  const [settings, setSettings] = useState<Settings>(() => readSettings());
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [activeTab, setActiveTab] = useState<Tab>("store");
   const [showPassword, setShowPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      if (isSupabaseConfigured) {
+        const { data } = await supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "store_settings")
+          .single();
+        if (data?.value) {
+          setSettings({ ...defaultSettings, ...data.value });
+        }
+      } else {
+        try {
+          const raw = window.localStorage.getItem("patgram_settings");
+          if (raw) {
+            setSettings({ ...defaultSettings, ...JSON.parse(raw) });
+          }
+        } catch {}
+      }
+    }
+    load();
+  }, []);
 
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
@@ -103,8 +110,14 @@ function SettingsContent() {
     setSettings((prev) => ({ ...prev, ...partial }));
   };
 
-  const handleSave = () => {
-    writeSettings(settings);
+  const handleSave = async () => {
+    if (isSupabaseConfigured) {
+      await supabase
+        .from("settings")
+        .upsert({ key: "store_settings", value: settings }, { onConflict: "key" });
+    } else {
+      window.localStorage.setItem("patgram_settings", JSON.stringify(settings));
+    }
     toast.success("সেটিংস সংরক্ষিত হয়েছে!");
   };
 
