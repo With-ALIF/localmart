@@ -36,13 +36,13 @@ function RegisterPage() {
       return;
     }
     setLoading(true);
-    const ok = await register(name, email, phone, password);
+    const result = await register(name, email, phone, password);
     setLoading(false);
-    if (ok) {
+    if (result.success) {
       toast.success("সফলভাবে রেজিস্ট্রেশন হয়েছে!");
       navigate({ to: (redirect as string) || "/", replace: true });
     } else {
-      toast.error("রেজিস্ট্রেশন ব্যর্থ হয়েছে");
+      toast.error(result.error || "রেজিস্ট্রেশন ব্যর্থ হয়েছে");
     }
   };
 

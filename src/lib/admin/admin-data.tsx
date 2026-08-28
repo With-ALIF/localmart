@@ -269,7 +269,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const { data: productsData } = await supabase
         .from("products")
         .select("*")
-        .eq("is_active", true);
+        .order("created_at", { ascending: false });
 
       const { data: categoriesData } = await supabase
         .from("categories")
@@ -328,18 +328,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [orders, isSupabaseConfigured]);
 
   const addProduct = useCallback(async (p: Product) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const dbProduct = mapProductToDb(p);
       const { error } = await supabase.from("products").insert(dbProduct);
-      if (error) {
-        console.error("Failed to add product:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to add product:", error);
     }
-    setProducts((prev) => [...prev, p]);
+    if (!dbOk) {
+      setProducts((prev) => {
+        const next = [...prev, p];
+        if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
+        return next;
+      });
+    } else {
+      setProducts((prev) => [...prev, p]);
+    }
   }, []);
 
   const updateProduct = useCallback(async (id: string, data: Partial<Product>) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const dbData: any = {};
       if (data.name !== undefined) dbData.name = data.name;
@@ -357,38 +365,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (data.tags !== undefined) dbData.tags = data.tags;
 
       const { error } = await supabase.from("products").update(dbData).eq("id", id);
-      if (error) {
-        console.error("Failed to update product:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to update product:", error);
     }
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)));
+    setProducts((prev) => {
+      const next = prev.map((p) => (p.id === id ? { ...p, ...data } : p));
+      if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const deleteProduct = useCallback(async (id: string) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) {
-        console.error("Failed to delete product:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to delete product:", error);
     }
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      if (typeof window !== "undefined") window.localStorage.setItem(PRODUCTS_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const addCategory = useCallback(async (c: Category) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const dbCategory = mapCategoryToDb(c);
       const { error } = await supabase.from("categories").insert(dbCategory);
-      if (error) {
-        console.error("Failed to add category:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to add category:", error);
     }
-    setCategories((prev) => [...prev, c]);
+    setCategories((prev) => {
+      const next = [...prev, c];
+      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const updateCategory = useCallback(async (slug: CategorySlug, data: Partial<Category>) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const dbData: any = {};
       if (data.name !== undefined) dbData.name = data.name;
@@ -396,23 +413,28 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (data.image !== undefined) dbData.image = data.image;
 
       const { error } = await supabase.from("categories").update(dbData).eq("slug", slug);
-      if (error) {
-        console.error("Failed to update category:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to update category:", error);
     }
-    setCategories((prev) => prev.map((c) => (c.slug === slug ? { ...c, ...data } : c)));
+    setCategories((prev) => {
+      const next = prev.map((c) => (c.slug === slug ? { ...c, ...data } : c));
+      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const deleteCategory = useCallback(async (slug: CategorySlug) => {
+    let dbOk = false;
     if (isSupabaseConfigured) {
       const { error } = await supabase.from("categories").delete().eq("slug", slug);
-      if (error) {
-        console.error("Failed to delete category:", error);
-        return;
-      }
+      if (!error) dbOk = true;
+      else console.error("Failed to delete category:", error);
     }
-    setCategories((prev) => prev.filter((c) => c.slug !== slug));
+    setCategories((prev) => {
+      const next = prev.filter((c) => c.slug !== slug);
+      if (typeof window !== "undefined") window.localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   const updateOrderStatus = useCallback(async (id: string, status: Order["status"]) => {

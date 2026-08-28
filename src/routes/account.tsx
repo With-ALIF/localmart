@@ -271,7 +271,7 @@ function AccountPage() {
       window.location.reload();
     } else {
       const updated = { ...user!, name: profileForm.name, email: profileForm.email, phone: profileForm.phone };
-      writeJson("patgram-auth", { isAuthenticated: true, user: updated });
+      writeJson("patgram_session", updated);
       window.location.reload();
     }
     setEditingProfile(false);

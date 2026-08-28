@@ -33,7 +33,7 @@ function CheckoutPage() {
   useEffect(() => {
     async function loadAddresses() {
       if (isSupabaseConfigured) {
-        const userId = user && "id" in user ? (user as { id: string }).id : null;
+        const userId = user?.id ?? null;
         if (!userId) return;
         const { data } = await supabase
           .from("addresses")

@@ -25,13 +25,13 @@ function LoginPage() {
       return;
     }
     setLoading(true);
-    const ok = await login(email, password);
+    const result = await login(email, password);
     setLoading(false);
-    if (ok) {
+    if (result.success) {
       toast.success("সফলভাবে লগইন হয়েছে!");
       navigate({ to: (redirect as string) || "/", replace: true });
     } else {
-      toast.error("লগইন ব্যর্থ হয়েছে", { description: "ইমেইল বা পাসওয়ার্ড সঠিক নয়" });
+      toast.error(result.error || "লগইন ব্যর্থ হয়েছে");
     }
   };
 
