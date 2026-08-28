@@ -12,7 +12,6 @@ import {
   FileText,
   Lock,
 } from "lucide-react";
-import { categories } from "@/data/catalog";
 
 export function Footer() {
   return (
@@ -23,7 +22,7 @@ export function Footer() {
             <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
               <Sprout className="size-4.5" />
             </span>
-            <span className="font-display text-lg font-extrabold">সবুজ বাজার</span>
+            <span className="font-display text-lg font-extrabold">Patgram</span>
           </div>
           <p className="text-sm leading-relaxed text-muted-foreground">
             নিত্যপ্রয়োজনীয় মুদি থেকে ইলেকট্রনিক্স — সবকিছু এক জায়গায়, সেরা দামে ও দ্রুত
@@ -55,53 +54,8 @@ export function Footer() {
         </div>
 
         <div>
-          <h3 className="mb-4 text-sm font-bold">ক্যাটাগরি</h3>
+          <h3 className="mb-4 text-sm font-bold">সাপোর্ট</h3>
           <ul className="space-y-2.5 text-sm text-muted-foreground">
-            {categories.slice(0, 6).map((c) => (
-              <li key={c.slug}>
-                <Link
-                  to="/products"
-                  search={{ category: c.slug }}
-                  className="transition hover:text-primary"
-                >
-                  {c.icon} {c.name}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div>
-          <h3 className="mb-4 text-sm font-bold">দ্রুত লিংক</h3>
-          <ul className="space-y-2.5 text-sm text-muted-foreground">
-            <li>
-              <Link to="/products" className="transition hover:text-primary">
-                সব পণ্য
-              </Link>
-            </li>
-            <li>
-              <Link to="/offers" className="transition hover:text-primary">
-                বিশেষ অফার
-              </Link>
-            </li>
-            <li>
-              <Link to="/wishlist" className="transition hover:text-primary">
-                উইশলিস্ট
-              </Link>
-            </li>
-            <li>
-              <Link to="/cart" className="transition hover:text-primary">
-                কার্ট
-              </Link>
-            </li>
-            <li>
-              <Link to="/login" className="transition hover:text-primary">
-                লগইন / রেজিস্টার
-              </Link>
-            </li>
-          </ul>
-          <div className="mt-5 space-y-2.5 text-sm text-muted-foreground">
-            <h3 className="mb-2 text-sm font-bold">সাপোর্ট</h3>
             <li className="flex items-center gap-2">
               <Shield className="size-3.5 text-primary" />
               <a href="#" className="transition hover:text-primary">
@@ -120,7 +74,7 @@ export function Footer() {
                 রিফান্ড পলিসি
               </a>
             </li>
-          </div>
+          </ul>
         </div>
 
         <div>
@@ -129,27 +83,21 @@ export function Footer() {
             <li className="flex items-start gap-2.5">
               <Phone className="mt-0.5 size-4 shrink-0 text-primary" />
               <div>
-                <p className="font-semibold">হটলাইন: ০৯৬১১-১২৩৪৫৬</p>
-                <p className="text-xs">ইমের্জেন্সি: ০১৭০০-০০০০০০</p>
+                <p className="font-semibold">01611820567</p>
+                <p className="font-semibold">01911820567</p>
               </div>
             </li>
             <li className="flex items-start gap-2.5">
               <Mail className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div>
-                <p>care@shobujbazar.com</p>
-                <p className="text-xs">info@shobujbazar.com</p>
-              </div>
+              <p>rs2pgm@gmail.com</p>
             </li>
             <li className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-              <p>বসুন্ধরা সিটি, ঢাকা, বাংলাদেশ</p>
+              <p>পাটগ্রাম, লালমনিরহাট-৫৫৪০</p>
             </li>
             <li className="flex items-start gap-2.5">
               <Clock className="mt-0.5 size-4 shrink-0 text-primary" />
-              <div>
-                <p>সকাল ৯টা – রাত ১০টা</p>
-                <p className="text-xs">প্রতিদিন (শুক্রবার বন্ধ)</p>
-              </div>
+              <p>সকাল ৮টা – রাত ১২টা</p>
             </li>
           </ul>
         </div>

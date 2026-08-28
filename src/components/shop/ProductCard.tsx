@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 export function ProductCard({ product }: { product: Product }) {
   const { addToCart, toggleWishlist, isWishlisted } = useShop();
-  const { user } = useAuth();
+  const { user, hydrated } = useAuth();
   const navigate = useNavigate();
   const [cartState, setCartState] = useState<"idle" | "loading" | "added">("idle");
   const off = discountPercent(product);
@@ -132,7 +132,7 @@ export function ProductCard({ product }: { product: Product }) {
                 ? "যোগ হয়েছে!"
                 : "কার্টে যোগ"}
           </button>
-          {user && (
+          {hydrated && user && (
             <button
               disabled={!inStock}
               onClick={() => {

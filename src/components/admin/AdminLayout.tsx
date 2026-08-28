@@ -17,6 +17,7 @@ import {
   Bell,
   ChevronDown,
   Sprout,
+  Receipt,
 } from "lucide-react";
 import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const sidebarLinks = [
   { to: "/admin/products", label: "Products", icon: Package },
   { to: "/admin/categories", label: "Categories", icon: FolderTree },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+  { to: "/admin/pos", label: "Direct Sale / POS", icon: Receipt },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/offers", label: "Offers", icon: Tag, placeholder: true },
   { to: "/admin/reviews", label: "Reviews", icon: Star, placeholder: true },
