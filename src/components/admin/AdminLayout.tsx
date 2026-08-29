@@ -20,6 +20,7 @@ import {
   Sprout,
   Receipt,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { cn } from "@/lib/utils";
 
@@ -50,8 +51,13 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
-  const handleLogout = () => {
-    adminLogout();
+  const handleLogout = async () => {
+    try {
+      await adminLogout();
+      toast.success("Admin Logged Out");
+    } catch (e) {
+      console.error(e);
+    }
     navigate({ to: "/admin" });
   };
 
@@ -185,11 +191,12 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
       </div>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg lg:hidden">
-        <div className="grid grid-cols-5 items-center py-1.5">
+        <div className="grid grid-cols-6 items-center py-1.5">
           {[
             { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
             { to: "/admin/products", label: "Products", icon: Package },
             { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
+            { to: "/admin/pos", label: "POS", icon: Receipt },
             { to: "/admin/customers", label: "Customers", icon: Users },
             { to: "/admin/settings", label: "Settings", icon: Settings },
           ].map((l) => (

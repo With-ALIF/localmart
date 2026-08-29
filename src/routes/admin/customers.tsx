@@ -296,9 +296,9 @@ function CustomerDetailModal({
           </div>
 
           <div>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 space-y-2">
               <h4 className="text-sm font-bold">অর্ডার ইতিহাস</h4>
-              <div className="flex gap-1">
+              <div className="flex flex-wrap gap-1.5">
                 {["all", "pending", "processing", "shipped", "delivered", "cancelled"].map((f) => (
                   <button
                     key={f}

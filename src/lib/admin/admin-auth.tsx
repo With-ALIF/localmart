@@ -24,7 +24,7 @@ type AdminAuthContextValue = {
   adminUser: AdminUser | null;
   hydrated: boolean;
   adminLogin: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  adminLogout: () => void;
+  adminLogout: () => Promise<void>;
 };
 
 const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
@@ -157,11 +157,15 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(ADMIN_STORAGE_KEY);
     }
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut().catch(() => {});
-    }
     setIsAdminAuthenticated(false);
     setAdminUser(null);
+    if (isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.error("Admin signOut error:", err);
+      }
+    }
   }, []);
 
   const value = useMemo<AdminAuthContextValue>(

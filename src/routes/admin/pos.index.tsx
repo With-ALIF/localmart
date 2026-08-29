@@ -239,8 +239,8 @@ function POSContent() {
         {/* Right: POS Cart */}
         <div
           className={`
-            flex flex-col rounded-2xl border border-border bg-card
-            fixed inset-y-0 right-0 z-50 w-[340px] max-w-[85vw] transition-transform duration-200 lg:static lg:translate-x-0 lg:rounded-2xl lg:w-auto lg:max-w-none
+            flex flex-col rounded-2xl border border-border bg-card overflow-y-auto
+            fixed inset-y-0 right-0 z-50 w-[340px] max-w-[85vw] transition-transform duration-200 lg:static lg:translate-x-0 lg:rounded-2xl lg:w-auto lg:max-w-none lg:overflow-visible
             ${mobileCartOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}
           `}
         >
@@ -264,7 +264,7 @@ function POSContent() {
           </div>
 
           {/* Cart Items */}
-          <div className="max-h-[40vh] flex-1 overflow-y-auto px-4 py-2 space-y-2 lg:max-h-none">
+          <div className="overflow-y-auto px-4 py-2 space-y-2 lg:flex-1 lg:overflow-y-auto lg:max-h-none">
             {cart.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 <ShoppingCart className="mx-auto mb-2 size-8 opacity-30" />
@@ -273,7 +273,22 @@ function POSContent() {
             ) : (
               cart.map((item) => (
                 <div key={item.productId} className="flex items-center gap-2 rounded-xl border border-border bg-surface p-2">
-                  <img src={item.image || "/placeholder.png"} alt={item.name} className="size-10 rounded-lg object-contain" />
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="size-10 shrink-0 rounded-lg object-contain"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = "none";
+                        const fallback = el.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div className={`size-10 shrink-0 rounded-lg bg-surface items-center justify-center ${item.image ? "hidden" : "flex"}`}>
+                    <span className="text-lg">📦</span>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate text-xs font-semibold">{item.name}</p>
                     <p className="text-[11px] font-bold text-primary">{formatTaka(item.price)}</p>

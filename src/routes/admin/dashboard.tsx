@@ -10,8 +10,8 @@ import {
   Plus,
   AlertTriangle,
 } from "lucide-react";
-import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
-import { DataProvider, useData } from "@/lib/admin/admin-data";
+import { useAdminAuth } from "@/lib/admin/admin-auth";
+import { useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -24,24 +24,12 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
-const ORDERS_KEY = "patgram_orders";
-
 type Order = {
   id: string;
   total: number;
   date: string;
   status: string;
 };
-
-function readOrders(): Order[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(ORDERS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
 
 function getSalesChartData(orders: Order[], period: string) {
   const now = new Date();
@@ -105,7 +93,7 @@ function DashboardContent() {
 
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
-  const allOrders = readOrders();
+  const allOrders = orders.map((o) => ({ id: o.id, total: o.total, date: o.date, status: o.status }));
   const { labels: salesLabels, data: salesData } = useMemo(
     () => getSalesChartData(allOrders, period),
     [allOrders, period],
@@ -260,7 +248,7 @@ function DashboardContent() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-2xl border border-border bg-card shadow-soft lg:col-span-2">
+          <div className="min-w-0 rounded-2xl border border-border bg-card shadow-soft lg:col-span-2">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <h2 className="font-display text-lg font-bold">Recent Orders</h2>
               <Link
@@ -398,14 +386,4 @@ function DashboardContent() {
   );
 }
 
-function AdminDashboardPage() {
-  return (
-    <AdminAuthProvider>
-      <DataProvider>
-        <DashboardContent />
-      </DataProvider>
-    </AdminAuthProvider>
-  );
-}
-
-export const Route = createFileRoute("/admin/dashboard")({ component: AdminDashboardPage });
+export const Route = createFileRoute("/admin/dashboard")({ component: DashboardContent });

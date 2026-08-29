@@ -251,8 +251,8 @@ function OrdersContent() {
         )}
 
         {viewOrder && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-card p-6 shadow-lg">
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[5vh] sm:items-center sm:pt-4">
+            <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-lg sm:max-h-[90vh] sm:overflow-y-auto">
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-lg font-bold">{viewOrder.id}</h3>
                 <button
