@@ -69,6 +69,7 @@ function mapProduct(row: Record<string, unknown>): Product {
 
 function mapCategory(row: Record<string, unknown>): Category {
   return {
+    id: row.id as string,
     slug: row.slug as string,
     name: row.name as string,
     icon: (row.icon as string) || "",
@@ -159,8 +160,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       })
       .filter((x): x is { product: Product; qty: number } => x !== null);
 
-    const subtotal = cartItems.reduce((sum, i) => sum + i.product.oldPrice * i.qty, 0);
-    const total = cartItems.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+    const subtotal = cartItems.reduce((sum, i) => sum + i.product.price * i.qty, 0);
+    const discount = cartItems.reduce((sum, i) => sum + Math.max(0, i.product.oldPrice - i.product.price) * i.qty, 0);
+    const total = subtotal - discount;
 
     return {
       products,
@@ -171,7 +173,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       cartCount: cart.reduce((n, l) => n + l.qty, 0),
       wishlistCount: wishlist.length,
       subtotal,
-      discount: subtotal - total,
+      discount,
       total,
       loading,
       addToCart,

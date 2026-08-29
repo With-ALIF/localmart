@@ -150,7 +150,7 @@ function EditProductContent() {
               >
                 <option value="">Select</option>
                 {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>
+                  <option key={c.id} value={c.id}>
                     {c.icon} {c.name}
                   </option>
                 ))}

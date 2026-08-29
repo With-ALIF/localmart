@@ -15,8 +15,8 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { toBnNumber, formatTaka } from "@/lib/format";
-import { productImage } from "@/data/catalog";
 import { cn } from "@/lib/utils";
+import { ProductImage } from "./ProductImage";
 
 const navLinks = [
   { to: "/", label: "হোম", icon: Home },
@@ -35,7 +35,7 @@ function CountBadge({ count }: { count: number }) {
 }
 
 export function Header() {
-  const { cartCount, wishlistCount, products } = useShop();
+  const { cartCount, wishlistCount, products, categories } = useShop();
   const { user, logout, hydrated } = useAuth();
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
@@ -125,10 +125,11 @@ export function Header() {
                     onClick={() => handleSuggestionClick(p.id)}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-secondary"
                   >
-                    <img
-                      src={productImage(p)}
-                      alt={p.name}
-                      className="size-10 shrink-0 rounded-lg object-contain"
+                    <ProductImage
+                      product={p}
+                      categories={categories}
+                      className="size-10 shrink-0 rounded-lg"
+                      imgClassName="size-10 shrink-0 rounded-lg object-contain"
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold">{p.name}</p>

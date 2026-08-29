@@ -152,9 +152,9 @@ function CategorySection({ categories, products }: { categories: any[]; products
       <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 sm:grid sm:grid-cols-4 lg:grid-cols-8">
         {categories.map((c) => (
           <Link
-            key={c.slug}
+            key={c.id}
             to="/products"
-            search={{ category: c.slug }}
+            search={{ category: c.id }}
             className="group flex shrink-0 flex-col items-center gap-2 rounded-2xl border border-border bg-card p-3 text-center shadow-soft transition hover:-translate-y-0.5 hover:border-primary hover:shadow-hover sm:shrink sm:p-4"
           >
             <span className="flex size-14 items-center justify-center rounded-full bg-surface text-2xl transition group-hover:bg-primary/10 group-hover:scale-110 sm:size-16">
@@ -162,7 +162,7 @@ function CategorySection({ categories, products }: { categories: any[]; products
             </span>
             <span className="text-[11px] font-bold sm:text-xs">{c.name}</span>
             <span className="text-[10px] text-muted-foreground">
-              {toBnNumber(products.filter(p => p.category === c.slug).length)}টি
+              {toBnNumber(products.filter(p => p.category === c.id).length)}টি
             </span>
           </Link>
         ))}

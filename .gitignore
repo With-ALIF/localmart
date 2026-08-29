@@ -21,6 +21,12 @@ bun.lock
 .env.test.local
 .env.production.local
 
+# SQL files
+*.sql
+*.sql.gz
+*.sql.tar.gz
+supabase/*.sql
+
 node_modules
 dist
 dist-ssr

@@ -6,9 +6,10 @@ import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { formatTaka, toBnNumber } from "@/lib/format";
-import { productImage, discountPercent, categoryName } from "@/data/catalog";
+import { discountPercent, categoryName } from "@/data/catalog";
 import { useShop } from "@/lib/shop-store";
 import { cn } from "@/lib/utils";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 function ProductListPage() {
   const { isAdminAuthenticated } = useAdminAuth();
@@ -82,7 +83,7 @@ function ProductListPage() {
             >
               <option value="">All Categories</option>
               {categories.map((c) => (
-                <option key={c.slug} value={c.slug}>
+                <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
@@ -133,10 +134,11 @@ function ProductListPage() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={productImage(p)}
-                            alt=""
-                            className="size-10 rounded-lg object-cover"
+                          <ProductImage
+                            product={p}
+                            categories={categories}
+                            className="size-10 rounded-lg"
+                            imgClassName="size-10 rounded-lg object-cover"
                           />
                           <div className="min-w-0">
                             <p className="truncate font-semibold">{p.name}</p>

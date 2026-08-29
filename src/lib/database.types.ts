@@ -263,9 +263,44 @@ export interface Database {
           updated_at?: string;
         };
       };
+      order_status_history: {
+        Row: {
+          id: string;
+          order_id: string;
+          status: string;
+          note: string;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          status: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          order_id?: string;
+          status?: string;
+          note?: string;
+          created_by?: string | null;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      update_order_status: {
+        Args: {
+          p_order_id: string;
+          p_new_status: string;
+          p_created_by?: string;
+          p_note?: string;
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

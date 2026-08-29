@@ -15,22 +15,28 @@ function CategoriesPage() {
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {categories.map((c) => (
             <Link
-              key={c.slug}
+              key={c.id}
               to="/products"
-              search={{ category: c.slug }}
+              search={{ category: c.id }}
               className="group overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition hover:-translate-y-1 hover:shadow-hover"
             >
               <div className="relative aspect-[4/3] overflow-hidden bg-surface">
-                <img
-                  src={c.image}
-                  alt={c.name}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
+                {c.image ? (
+                  <img
+                    src={c.image}
+                    alt={c.name}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <span className="text-5xl">{c.icon || "📦"}</span>
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                 <div className="absolute bottom-0 left-0 p-4">
                   <h3 className="text-lg font-bold text-white">{c.name}</h3>
                   <p className="text-xs text-white/80">
-                    {toBnNumber(products.filter(p => p.category === c.slug).length)}টি পণ্য
+                    {toBnNumber(products.filter(p => p.category === c.id).length)}টি পণ্য
                   </p>
                 </div>
               </div>

@@ -12,6 +12,7 @@ import { type POSPaymentMethod, type POSPaymentStatus, paymentMethodLabels } fro
 import { productImage } from "@/data/catalog";
 import { toBnNumber, formatTaka } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 export const Route = createFileRoute("/admin/pos/")({ component: AdminPOSPage });
 
@@ -29,7 +30,7 @@ function AdminPOSPage() {
 
 function POSContent() {
   const { adminUser } = useAdminAuth();
-  const { products } = useShop();
+  const { products, categories } = useShop();
   const { cart, hydrated: posHydrated, addToCart, updateQty, removeFromCart, clearCart, completeSale, getTodaySales } = usePosStore();
 
   // Search & filter
@@ -57,10 +58,12 @@ function POSContent() {
 
   // Product list
   const posProducts = useMemo(() => {
-    return (products || []).map((p) => ({
-      ...p,
-      image: productImage(p),
-    }));
+    return (
+      products?.map((p) => ({
+        ...p,
+        image: productImage(p, categories),
+      })) ?? []
+    );
   }, [products]);
 
   const filteredProducts = useMemo(() => {
@@ -174,13 +177,13 @@ function POSContent() {
             >
               সব
             </button>
-            {["fruits", "vegetables", "fish", "meat", "dairy", "bakery", "beverages", "snacks"].map((cat) => (
+            {categories.map((c) => (
               <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold capitalize transition ${selectedCategory === cat ? "bg-primary text-primary-foreground" : "border border-border bg-card hover:bg-secondary"}`}
+                key={c.id}
+                onClick={() => setSelectedCategory(c.id)}
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${selectedCategory === c.id ? "bg-primary text-primary-foreground" : "border border-border bg-card hover:bg-secondary"}`}
               >
-                {cat}
+                {c.icon} {c.name}
               </button>
             ))}
           </div>
@@ -193,10 +196,15 @@ function POSContent() {
                 <button
                   key={p.id}
                   disabled={!inStock}
-                  onClick={() => addToCart({ id: p.id, name: p.name, price: p.price, stock: p.stock, unit: p.unit, image: productImage(p) })}
+                  onClick={() => addToCart({ id: p.id, name: p.name, price: p.price, stock: p.stock, unit: p.unit, image: productImage(p, categories) })}
                   className="group flex flex-col items-center rounded-xl border border-border bg-card p-2 text-center transition hover:border-primary hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <img src={productImage(p)} alt={p.name} className="mb-1.5 size-16 rounded-lg object-contain" />
+                  <ProductImage
+                    product={p}
+                    categories={categories}
+                    className="mb-1.5 size-16 rounded-lg"
+                    imgClassName="mb-1.5 size-16 rounded-lg object-contain"
+                  />
                   <h4 className="line-clamp-2 text-[11px] font-semibold leading-tight">{p.name}</h4>
                   <p className="mt-0.5 text-xs font-bold text-primary">{formatTaka(p.price)}</p>
                   <p className={`text-[10px] font-medium ${inStock ? "text-green-600" : "text-red-500"}`}>

@@ -1,12 +1,14 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
-import { Search, ChevronDown, Eye } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Search, ChevronDown, Eye, Clock, Package, Truck, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
 import { DataProvider, useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { Order } from "@/lib/admin/admin-data";
+import type { Order, StatusHistoryEntry } from "@/lib/admin/admin-data";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -16,12 +18,75 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
+const statusIcons: Record<string, typeof Clock> = {
+  pending: Clock,
+  processing: Package,
+  shipped: Truck,
+  delivered: CheckCircle,
+  cancelled: XCircle,
+};
+
+const statusLabels: Record<string, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+function formatDateTime(iso: string) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const day = toBnNumber(d.getDate());
+    const monthNames = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+    const month = monthNames[d.getMonth()] || "";
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const period = hours >= 12 ? "অপরাহ্ন" : "পূর্বাহ্ন";
+    const h12 = hours % 12 || 12;
+    return `${day} ${month}, ${toBnNumber(h12)}:${toBnNumber(minutes)} ${period}`;
+  } catch {
+    return iso;
+  }
+}
+
 function OrdersContent() {
   const { isAdminAuthenticated } = useAdminAuth();
-  const { orders, updateOrderStatus } = useData();
+  const { orders, updateOrderStatus, getOrderStatusHistory, getValidNextStatuses } = useData();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
+  const [viewHistory, setViewHistory] = useState<StatusHistoryEntry[]>([]);
+  const [newStatus, setNewStatus] = useState<string>("");
+  const [statusNote, setStatusNote] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const loadHistory = useCallback(async (orderId: string) => {
+    if (!isSupabaseConfigured) return;
+    const dbOrder = orders.find((o) => o.id === orderId);
+    if (!dbOrder) return;
+
+    const { data } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("order_number", orderId)
+      .single();
+
+    if (data) {
+      const history = await getOrderStatusHistory((data as { id: string }).id);
+      setViewHistory(history);
+    }
+  }, [orders, getOrderStatusHistory]);
+
+  useEffect(() => {
+    if (viewOrder) {
+      loadHistory(viewOrder.id);
+      const validNext = getValidNextStatuses(viewOrder.status);
+      setNewStatus(validNext[0] || "");
+      setStatusNote("");
+    }
+  }, [viewOrder, loadHistory, getValidNextStatuses]);
 
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
@@ -49,10 +114,26 @@ function OrdersContent() {
       cancelled: 0,
     };
     orders.forEach((o) => {
-      counts[o.status]++;
+      counts[o.status] = (counts[o.status] ?? 0) + 1;
     });
     return counts;
   }, [orders]);
+
+  const handleStatusUpdate = async () => {
+    if (!viewOrder || !newStatus) return;
+    setIsUpdating(true);
+    const result = await updateOrderStatus(viewOrder.id, newStatus as Order["status"], statusNote);
+    setIsUpdating(false);
+
+    if (result.success) {
+      toast.success("Status updated", { description: `${viewOrder.id} → ${statusLabels[newStatus]}` });
+      setViewOrder({ ...viewOrder, status: newStatus as Order["status"] });
+      loadHistory(viewOrder.id);
+      setStatusNote("");
+    } else {
+      toast.error("Failed to update status", { description: result.error });
+    }
+  };
 
   return (
     <AdminLayout>
@@ -85,7 +166,7 @@ function OrdersContent() {
                 {s}
               </span>
               <p className="mt-1.5 font-display text-xl font-extrabold">
-                {toBnNumber(statusCounts[s])}
+                {toBnNumber(statusCounts[s] ?? 0)}
               </p>
             </button>
           ))}
@@ -150,20 +231,9 @@ function OrdersContent() {
                     <td className="px-4 py-3 font-semibold">{formatTaka(o.total)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{o.payment}</td>
                     <td className="px-4 py-3">
-                      <select
-                        value={o.status}
-                        onChange={(e) => updateOrderStatus(o.id, e.target.value as Order["status"])}
-                        className={cn(
-                          "rounded-full border-0 px-2.5 py-0.5 text-[11px] font-bold capitalize outline-none cursor-pointer",
-                          statusColors[o.status],
-                        )}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="delivered">Delivered</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                      <span className={cn("rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize", statusColors[o.status])}>
+                        {statusLabels[o.status]}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button
@@ -182,7 +252,7 @@ function OrdersContent() {
 
         {viewOrder && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-lg">
+            <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-card p-6 shadow-lg">
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-lg font-bold">{viewOrder.id}</h3>
                 <button
@@ -192,6 +262,7 @@ function OrdersContent() {
                   ✕
                 </button>
               </div>
+
               <div className="mt-4 space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Customer</span>
@@ -215,27 +286,8 @@ function OrdersContent() {
                   <span className="text-muted-foreground">Payment</span>
                   <span className="font-semibold">{viewOrder.payment}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Status</span>
-                  <select
-                    value={viewOrder.status}
-                    onChange={(e) => {
-                      updateOrderStatus(viewOrder.id, e.target.value as Order["status"]);
-                      setViewOrder({ ...viewOrder, status: e.target.value as Order["status"] });
-                    }}
-                    className={cn(
-                      "rounded-full border-0 px-2.5 py-0.5 text-[11px] font-bold capitalize outline-none cursor-pointer",
-                      statusColors[viewOrder.status],
-                    )}
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="processing">Processing</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
-                </div>
               </div>
+
               <div className="mt-4 border-t border-border pt-4">
                 <p className="mb-2 text-xs font-bold">Items</p>
                 {viewOrder.items.map((item, i) => (
@@ -250,6 +302,70 @@ function OrdersContent() {
                   <span className="text-primary">{formatTaka(viewOrder.total)}</span>
                 </div>
               </div>
+
+              {viewHistory.length > 0 && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="mb-3 text-xs font-bold">Status History</p>
+                  <div className="space-y-3">
+                    {viewHistory.map((entry) => {
+                      const Icon = statusIcons[entry.status] || Clock;
+                      return (
+                        <div key={entry.id} className="flex items-start gap-3">
+                          <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", statusColors[entry.status]?.replace("text-", "text-").replace("bg-", "bg-"))}>
+                            <Icon className="size-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold capitalize">{statusLabels[entry.status] || entry.status}</p>
+                              <p className="text-[11px] text-muted-foreground">{formatDateTime(entry.created_at)}</p>
+                            </div>
+                            {entry.note && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">{entry.note}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {viewOrder.status !== "delivered" && viewOrder.status !== "cancelled" && (
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="mb-2 text-xs font-bold">Update Status</p>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <select
+                        value={newStatus}
+                        onChange={(e) => setNewStatus(e.target.value)}
+                        className="flex-1 h-10 appearance-none rounded-xl border border-border bg-card pl-4 pr-8 text-sm font-semibold outline-none focus:border-primary"
+                      >
+                        {getValidNextStatuses(viewOrder.status).map((s) => (
+                          <option key={s} value={s}>{statusLabels[s]}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={handleStatusUpdate}
+                        disabled={!newStatus || isUpdating}
+                        className={cn(
+                          "rounded-xl px-5 py-2.5 text-sm font-bold text-white transition",
+                          newStatus && !isUpdating
+                            ? "bg-primary hover:opacity-90"
+                            : "bg-muted text-muted-foreground cursor-not-allowed",
+                        )}
+                      >
+                        {isUpdating ? "Updating..." : "Update"}
+                      </button>
+                    </div>
+                    <input
+                      value={statusNote}
+                      onChange={(e) => setStatusNote(e.target.value)}
+                      placeholder="Add a note (optional)"
+                      className="h-10 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

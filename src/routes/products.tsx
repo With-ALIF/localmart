@@ -9,7 +9,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import {
-  productImage,
   discountPercent,
   type CategorySlug,
   type Product,
@@ -18,6 +17,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { EmptyState } from "@/components/shop/ProductGrid";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ProductImage } from "@/components/shop/ProductImage";
 import { useShop } from "@/lib/shop-store";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
@@ -67,7 +67,7 @@ function parseSearch(search: Record<string, unknown>) {
 const ITEMS_PER_PAGE = 8;
 
 function ProductListItem({ product }: { product: Product }) {
-  const { addToCart, toggleWishlist, isWishlisted } = useShop();
+  const { addToCart, toggleWishlist, isWishlisted, categories } = useShop();
   const off = discountPercent(product);
   const wished = isWishlisted(product.id);
   const inStock = product.stock > 0;
@@ -80,11 +80,12 @@ function ProductListItem({ product }: { product: Product }) {
         params={{ productId: product.id }}
         className="relative block w-36 shrink-0 overflow-hidden bg-white p-2 sm:w-44"
       >
-        <img
-          src={productImage(product)}
-          alt={product.name}
+        <ProductImage
+          product={product}
+          categories={categories}
+          className="w-36 shrink-0 sm:w-44"
+          imgClassName="aspect-square w-full object-contain transition duration-500 group-hover:scale-105"
           loading="lazy"
-          className="aspect-square w-full object-contain transition duration-500 group-hover:scale-105"
         />
         {off > 0 && (
           <span className="absolute left-1.5 top-1.5 rounded-lg bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">
@@ -234,7 +235,7 @@ function ProductsPage() {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
           {params.category
-            ? categories.find((c) => c.slug === params.category)?.name || "পণ্য"
+            ? categories.find((c) => c.id === params.category)?.name || "পণ্য"
             : params.q
               ? `"${params.q}" এর ফলাফল`
               : "সব পণ্য"}
@@ -340,7 +341,7 @@ function ProductsPage() {
               >
                 <option value="">সব ক্যাটাগরি</option>
                 {categories.map((c) => (
-                  <option key={c.slug} value={c.slug}>
+                  <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}

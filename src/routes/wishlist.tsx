@@ -2,11 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart, ShoppingCart, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useShop } from "@/lib/shop-store";
-import { productImage, discountPercent } from "@/data/catalog";
+import { discountPercent } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 function WishlistPage() {
-  const { wishlist, toggleWishlist, removeFromWishlist, addToCart, wishlistCount, products } = useShop();
+  const { wishlist, toggleWishlist, removeFromWishlist, addToCart, wishlistCount, products, categories } = useShop();
 
   const wishlistProducts = wishlist
     .map((id) => products.find((p) => p.id === id))
@@ -45,7 +46,6 @@ function WishlistPage() {
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {wishlistProducts.map((product) => {
           const off = discountPercent(product);
-          const img = productImage(product);
           const inStock = product.stock > 0;
 
           return (
@@ -58,11 +58,12 @@ function WishlistPage() {
                 params={{ productId: product.id }}
                 className="relative block overflow-hidden bg-surface"
               >
-                <img
-                  src={img}
-                  alt={product.name}
+                <ProductImage
+                  product={product}
+                  categories={categories}
+                  className="aspect-square w-full transition duration-500 group-hover:scale-105"
+                  imgClassName="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
                   loading="lazy"
-                  className="aspect-square w-full object-cover transition duration-500 group-hover:scale-105"
                 />
                 {off > 0 && (
                   <span className="absolute left-3 top-3 rounded-full bg-destructive px-2.5 py-1 text-[11px] font-bold text-destructive-foreground">

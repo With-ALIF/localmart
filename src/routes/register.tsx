@@ -23,7 +23,7 @@ function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password) {
+    if (!name.trim() || !email.trim() || !password) {
       toast.error("সব তথ্য পূরণ করুন");
       return;
     }
@@ -39,7 +39,7 @@ function RegisterPage() {
     const result = await register(name, email, phone, password);
     setLoading(false);
     if (result.success) {
-      toast.success("সফলভাবে রেজিস্ট্রেশন হয়েছে!");
+      toast.success("সফলভাবে অ্যাকাউন্ট তৈরি হয়েছে!");
       navigate({ to: (redirect as string) || "/", replace: true });
     } else {
       toast.error(result.error || "রেজিস্ট্রেশন ব্যর্থ হয়েছে");

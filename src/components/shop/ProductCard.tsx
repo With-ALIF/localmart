@@ -2,14 +2,15 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Heart, ShoppingCart, Zap, Star, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
-import { discountPercent, productImage, type Product } from "@/data/catalog";
+import { discountPercent, type Product } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
+import { ProductImage } from "./ProductImage";
 
 export function ProductCard({ product }: { product: Product }) {
-  const { addToCart, toggleWishlist, isWishlisted } = useShop();
+  const { addToCart, toggleWishlist, isWishlisted, categories } = useShop();
   const { user, hydrated } = useAuth();
   const navigate = useNavigate();
   const [cartState, setCartState] = useState<"idle" | "loading" | "added">("idle");
@@ -25,13 +26,14 @@ export function ProductCard({ product }: { product: Product }) {
         params={{ productId: product.id }}
         className="relative block overflow-hidden bg-white p-3 pb-0"
       >
-        <img
-          src={productImage(product)}
-          alt={product.name}
+        <ProductImage
+          product={product}
+          categories={categories}
+          className="aspect-[4/3] w-full rounded-xl transition duration-500 group-hover:scale-105"
+          imgClassName="aspect-[4/3] w-full rounded-xl transition duration-500 group-hover:scale-105"
           loading="lazy"
           width={400}
           height={300}
-          className="aspect-[4/3] w-full rounded-xl object-contain transition duration-500 group-hover:scale-105"
         />
         {off > 0 && (
           <span className="absolute left-1.5 top-1.5 rounded-lg bg-destructive px-2 py-0.5 text-[10px] font-bold leading-tight text-destructive-foreground">
@@ -142,7 +144,7 @@ export function ProductCard({ product }: { product: Product }) {
               className="inline-flex h-8 items-center justify-center gap-1 rounded-lg bg-green-600 text-xs font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             >
               <Zap className="size-3" />
-              বাই নাও
+              এখনই কিনুন
             </button>
           )}
         </div>

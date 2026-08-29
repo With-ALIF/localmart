@@ -36,8 +36,9 @@ import { useAuth } from "@/lib/auth-store";
 import { useShop } from "@/lib/shop-store";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { productImage, type Product } from "@/data/catalog";
+import { type Product } from "@/data/catalog";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 type Tab =
   | "overview"
@@ -105,7 +106,7 @@ const sidebarItems: { tab: Tab; label: string; icon: typeof User }[] = [
 
 function AccountPage() {
   const { user, logout, hydrated } = useAuth();
-  const { products, cartItems, cartCount, wishlistCount, wishlist, removeFromWishlist, addToCart, clearCart } = useShop();
+  const { products, cartItems, cartCount, wishlistCount, wishlist, removeFromWishlist, addToCart, clearCart, categories } = useShop();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [allOrders, setAllOrders] = useState<Order[]>([]);
@@ -160,12 +161,13 @@ function AccountPage() {
               phone: o.customer_phone,
               address: o.address || "",
               email: o.customer_email || "",
-              items: (itemRows || []).map((i) => ({
-                productId: i.product_id || "",
-                name: i.product_name,
-                price: i.unit_price,
-                qty: i.quantity,
-              })),
+              items:
+                itemRows?.map((i) => ({
+                  productId: i.product_id || "",
+                  name: i.product_name,
+                  price: i.unit_price,
+                  qty: i.quantity,
+                })) ?? [],
               total: o.total_amount,
               payment: o.payment_method,
               status: o.status as Order["status"],
@@ -816,7 +818,12 @@ function WishlistTab({
           <div key={p.id} className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
             <Link to="/product/$productId" params={{ productId: p.id }} className="block">
               <div className="aspect-square bg-surface p-3">
-                <img src={productImage(p)} alt={p.name} className="size-full object-contain" />
+                <ProductImage
+                  product={p}
+                  categories={categories}
+                  className="size-full"
+                  imgClassName="size-full object-contain"
+                />
               </div>
             </Link>
             <div className="p-3">
@@ -887,7 +894,12 @@ function CartTab({
           <div key={item.product.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
             <Link to="/product/$productId" params={{ productId: item.product.id }} className="shrink-0">
               <div className="size-16 rounded-xl bg-surface p-2">
-                <img src={productImage(item.product)} alt={item.product.name} className="size-full object-contain" />
+                <ProductImage
+                  product={item.product}
+                  categories={categories}
+                  className="size-full"
+                  imgClassName="size-full object-contain"
+                />
               </div>
             </Link>
             <div className="min-w-0 flex-1">
@@ -940,35 +952,105 @@ function AddressesTab({
     setShowAddressForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.phone || !form.address) return;
-    if (editingAddress) {
-      saveAddresses(
-        addresses.map((a) =>
-          a.id === editingAddress.id ? { ...a, ...form } : a,
-        ),
-      );
+
+    if (isSupabaseConfigured) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user.id;
+      if (!uid) return;
+
+      if (editingAddress) {
+        const { error } = await supabase
+          .from("addresses")
+          .update({
+            label: form.label,
+            name: form.name,
+            phone: form.phone,
+            address: form.address,
+          })
+          .eq("id", editingAddress.id);
+
+        if (!error) {
+          saveAddresses(
+            addresses.map((a) =>
+              a.id === editingAddress.id ? { ...a, ...form } : a,
+            ),
+          );
+        }
+      } else {
+        const { data, error } = await supabase
+          .from("addresses")
+          .insert({
+            user_id: uid,
+            label: form.label,
+            name: form.name,
+            phone: form.phone,
+            address: form.address,
+            is_default: addresses.length === 0,
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          const saved: Address = {
+            id: (data as Record<string, unknown>).id as string,
+            label: form.label,
+            name: form.name,
+            phone: form.phone,
+            address: form.address,
+            isDefault: addresses.length === 0,
+          };
+          saveAddresses([...addresses, saved]);
+        }
+      }
     } else {
-      const newAddr: Address = {
-        id: Date.now().toString(),
-        ...form,
-        isDefault: addresses.length === 0,
-      };
-      saveAddresses([...addresses, newAddr]);
+      if (editingAddress) {
+        saveAddresses(
+          addresses.map((a) =>
+            a.id === editingAddress.id ? { ...a, ...form } : a,
+          ),
+        );
+      } else {
+        const newAddr: Address = {
+          id: crypto.randomUUID(),
+          ...form,
+          isDefault: addresses.length === 0,
+        };
+        saveAddresses([...addresses, newAddr]);
+      }
     }
     resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const updated = addresses.filter((a) => a.id !== id);
     if (addresses.find((a) => a.id === id)?.isDefault && updated.length > 0) {
       updated[0].isDefault = true;
     }
+
+    if (isSupabaseConfigured) {
+      await supabase.from("addresses").delete().eq("id", id);
+      if (updated.length > 0 && updated[0].isDefault) {
+        await supabase
+          .from("addresses")
+          .update({ is_default: true })
+          .eq("id", updated[0].id);
+      }
+    }
+
     saveAddresses(updated);
   };
 
-  const handleSetDefault = (id: string) => {
-    saveAddresses(addresses.map((a) => ({ ...a, isDefault: a.id === id })));
+  const handleSetDefault = async (id: string) => {
+    const updated = addresses.map((a) => ({ ...a, isDefault: a.id === id }));
+
+    if (isSupabaseConfigured) {
+      await supabase.from("addresses").update({ is_default: false }).in("id", addresses.map((a) => a.id));
+      await supabase.from("addresses").update({ is_default: true }).eq("id", id);
+    }
+
+    saveAddresses(updated);
   };
 
   const startEdit = (addr: Address) => {

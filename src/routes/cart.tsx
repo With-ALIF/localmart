@@ -3,8 +3,9 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
-import { productImage, discountPercent } from "@/data/catalog";
+import { discountPercent } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 function CartPage() {
   const {
@@ -17,6 +18,7 @@ function CartPage() {
     decrement,
     removeFromCart,
     clearCart,
+    categories,
   } = useShop();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -76,10 +78,11 @@ function CartPage() {
                   params={{ productId: product.id }}
                   className="relative shrink-0 overflow-hidden rounded-xl"
                 >
-                  <img
-                    src={productImage(product)}
-                    alt={product.name}
-                    className="size-24 object-cover sm:size-28"
+                  <ProductImage
+                    product={product}
+                    categories={categories}
+                    className="size-24 sm:size-28"
+                    imgClassName="size-24 object-cover sm:size-28"
                   />
                   {off > 0 && (
                     <span className="absolute left-1 top-1 rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-destructive-foreground">

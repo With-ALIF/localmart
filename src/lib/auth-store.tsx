@@ -27,8 +27,6 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const SESSION_KEY = "patgram_session";
-
 function mapUser(data: { id: string; email?: string; user_metadata?: Record<string, any> }, profile?: { name?: string; phone?: string } | null): User {
   return {
     id: data.id,
@@ -45,18 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
-      if (typeof window !== "undefined") {
-        try {
-          const raw = window.localStorage.getItem(SESSION_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed?.email) {
-              setUser(parsed);
-              setIsAuthenticated(true);
-            }
-          }
-        } catch {}
-      }
       setHydrated(true);
       return;
     }
@@ -94,73 +80,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = useCallback(async (emailInput: string, passwordInput: string): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
+    const email = emailInput.trim().toLowerCase();
+    const password = passwordInput.trim();
     if (!email || !password) return { success: false, error: "ইমেইল এবং পাসওয়ার্ড দিন" };
-
-    if (!isSupabaseConfigured) {
-      if (typeof window !== "undefined") {
-        const raw = window.localStorage.getItem(SESSION_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed.email === email && parsed._pw === password) {
-            setUser(parsed);
-            setIsAuthenticated(true);
-            return { success: true };
-          }
-        }
-        const usersRaw = window.localStorage.getItem("patgram_users");
-        const users: any[] = usersRaw ? JSON.parse(usersRaw) : [];
-        const found = users.find((u: any) => u.email === email && u.password === password);
-        if (found) {
-          const u: User = { name: found.name, email: found.email, phone: found.phone };
-          setUser(u);
-          setIsAuthenticated(true);
-          window.localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-          return { success: true };
-        }
-      }
-      return { success: false, error: "ভুল ইমেইল বা পাসওয়ার্ড!" };
-    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
+      console.error("Login error:", error.message, "status:", error.status);
       if (error.status === 429) return { success: false, error: "অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ অপেক্ষা করুন।" };
-      return { success: false, error: "ভুল ইমেইল বা পাসওয়ার্ড!" };
+      if (error.message.includes("Email not confirmed")) {
+        return { success: false, error: "আপনার ইমেইল ভেরিফাই করা হয়নি। অনুগ্রহ করে আপনার ইমেইল ইনবক্স চেক করুন।" };
+      }
+      if (error.status === 400 && error.message.includes("Invalid login")) {
+        return { success: false, error: "ভুল ইমেইল বা পাসওয়ার্ড! অথবা account তৈরি হয়নি।" };
+      }
+      return { success: false, error: error.message || "ভুল ইমেইল বা পাসওয়ার্ড!" };
     }
-    if (!data.session) return { success: false, error: "লগইন ব্যর্থ হয়েছে।" };
+    if (!data.session || !data.user) return { success: false, error: "লগইন ব্যর্থ হয়েছে।" };
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("name, phone")
-      .eq("id", data.session.user.id)
+      .eq("id", data.user.id)
       .maybeSingle();
-    const u = mapUser(data.session.user, profile);
+    const u = mapUser(data.user, profile);
     setUser(u);
     setIsAuthenticated(true);
     return { success: true };
   }, []);
 
   const register = useCallback(
-    async (name: string, email: string, phone: string, password: string): Promise<{ success: boolean; error?: string }> => {
-      if (!name || !email || !password) return { success: false, error: "সব তথ্য পূরণ করুন" };
-      if (password.length < 6) return { success: false, error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর" };
+    async (nameInput: string, emailInput: string, phoneInput: string, passwordInput: string): Promise<{ success: boolean; error?: string }> => {
+      if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
+      const name = nameInput.trim();
+      const email = emailInput.trim().toLowerCase();
+      const phone = phoneInput.trim();
+      const password = passwordInput.trim();
 
-      if (!isSupabaseConfigured) {
-        if (typeof window !== "undefined") {
-          const usersRaw = window.localStorage.getItem("patgram_users");
-          const users: any[] = usersRaw ? JSON.parse(usersRaw) : [];
-          if (users.some((u: any) => u.email === email)) {
-            return { success: false, error: "এই ইমেইল দিয়ে ইতিমধ্যে অ্যাকাউন্ট আছে" };
-          }
-          users.push({ name, email, phone, password });
-          window.localStorage.setItem("patgram_users", JSON.stringify(users));
-          const u: User = { name, email, phone };
-          setUser(u);
-          setIsAuthenticated(true);
-          window.localStorage.setItem(SESSION_KEY, JSON.stringify(u));
-        }
-        return { success: true };
-      }
+      if (!name || !email || !password) return { success: false, error: "সব তথ্য পূরণ করুন" };
+      if (password.length < 6) return { success: false, error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে" };
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -169,18 +129,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) {
+        console.error("Register error:", error.message, "status:", error.status);
         if (error.status === 429) return { success: false, error: "অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ অপেক্ষা করুন।" };
+        if (error.message.includes("already registered") || error.message.includes("already been registered")) {
+          return { success: false, error: "এই ইমেইল ইতিমধ্যে ব্যবহৃত হয়েছে। অনুগ্রহ করে Login করুন।" };
+        }
         return { success: false, error: error.message || "নিবন্ধন ব্যর্থ হয়েছে।" };
       }
       if (!data.user) return { success: false, error: "নিবন্ধন ব্যর্থ হয়েছে।" };
 
-      await supabase.from("profiles").upsert({
-        id: data.user.id,
-        name,
-        phone,
-      }).catch(() => {});
-
       if (data.session) {
+        // If session exists, user is immediately logged in
+        await supabase.from("profiles").upsert({
+          id: data.user.id,
+          name,
+          phone,
+          email,
+        });
+
         const u = mapUser(data.session.user, { name, phone });
         setUser(u);
         setIsAuthenticated(true);
@@ -193,9 +159,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     if (isSupabaseConfigured) {
       supabase.auth.signOut().catch(() => {});
-    }
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(SESSION_KEY);
     }
     setUser(null);
     setIsAuthenticated(false);

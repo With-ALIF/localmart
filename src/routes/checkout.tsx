@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { formatTaka, toBnNumber } from "@/lib/format";
-import { productImage, discountPercent } from "@/data/catalog";
+import { discountPercent } from "@/data/catalog";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { ProductImage } from "@/components/shop/ProductImage";
 
 type SavedAddress = {
   id: string;
@@ -18,7 +19,7 @@ type SavedAddress = {
 };
 
 function CheckoutPage() {
-  const { cartItems, subtotal, discount, total, cartCount, clearCart } = useShop();
+  const { cartItems, subtotal, discount, total, cartCount, clearCart, categories } = useShop();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [confirmed, setConfirmed] = useState(false);
@@ -153,6 +154,13 @@ function CheckoutPage() {
           .update({ stock: Math.max(0, (product.stock ?? 0) - qty) })
           .eq("id", product.id);
       }
+
+      await supabase.from("order_status_history").insert({
+        order_id: orderData.id,
+        status: "pending",
+        note: "Order placed",
+        created_by: userId,
+      });
     } else {
       const order = {
         id: orderNumber,
@@ -180,8 +188,8 @@ function CheckoutPage() {
       } catch {}
     }
 
-    clearCart();
     setConfirmed(true);
+    clearCart();
     toast.success("অর্ডার সফলভাবে দেওয়া হয়েছে!", {
       description: "শীঘ্রই ডেলিভারি পাবেন",
     });
@@ -405,10 +413,11 @@ function CheckoutPage() {
             <div className="space-y-3">
               {cartItems.map(({ product, qty }) => (
                 <div key={product.id} className="flex items-center gap-3">
-                  <img
-                    src={productImage(product)}
-                    alt=""
-                    className="size-12 rounded-lg object-cover"
+                  <ProductImage
+                    product={product}
+                    categories={categories}
+                    className="size-12 rounded-lg"
+                    imgClassName="size-12 rounded-lg object-cover"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-semibold">{product.name}</p>
@@ -420,6 +429,35 @@ function CheckoutPage() {
                 </div>
               ))}
             </div>
+            <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">সাবটোটাল ({toBnNumber(cartCount)}টি)</span>
+                <span className="font-semibold">{formatTaka(subtotal)}</span>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-success">
+                  <span>ছাড়</span>
+                  <span className="font-semibold">-{formatTaka(discount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-muted-foreground">
+                <span>ডেলিভারি</span>
+                <span className="font-semibold text-success">ফ্রি</span>
+              </div>
+              <div className="border-t border-border pt-2">
+                <div className="flex justify-between text-base font-bold">
+                  <span>মোট</span>
+                  <span className="font-display text-xl text-primary">{formatTaka(total)}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleOrder}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
+            >
+              <Shield className="size-4" />
+              অর্ডার কনফার্ম করুন — {formatTaka(total)}
+            </button>
           </div>
         </div>
 
@@ -460,28 +498,6 @@ function CheckoutPage() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-success/10 px-4 py-3 text-xs font-semibold text-success">
-              <Truck className="size-4 shrink-0" />
-              ৳৫০০+ অর্ডারে ফ্রি ডেলিভারি · ২৪ ঘণ্টায় ডেলিভারি
-            </div>
-          </div>
-        </div>
-
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-card/95 p-4 backdrop-blur-lg lg:hidden">
-          <div className="container-page">
-            <div className="mb-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">মোট ({toBnNumber(cartCount)}টি)</span>
-              <span className="font-display text-lg font-extrabold text-primary">
-                {formatTaka(total)}
-              </span>
-            </div>
-            <button
-              onClick={handleOrder}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition hover:opacity-90"
-            >
-              <Shield className="size-4" />
-              অর্ডার কনফার্ম করুন — {formatTaka(total)}
-            </button>
           </div>
         </div>
       </div>

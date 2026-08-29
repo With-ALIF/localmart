@@ -15,19 +15,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  productImage,
   discountPercent,
   categoryName,
+  productImage,
+  productFallbackIcon,
 } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
+import { ProductImage } from "@/components/shop/ProductImage";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { cn } from "@/lib/utils";
 
 function ProductDetailsPage() {
   const { productId } = Route.useParams();
-  const { addToCart, toggleWishlist, isWishlisted, products } = useShop();
+  const { addToCart, toggleWishlist, isWishlisted, products, categories } = useShop();
   const product = products.find(p => p.id === productId);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -53,7 +55,8 @@ function ProductDetailsPage() {
   const wished = isWishlisted(product.id);
   const inStock = product.stock > 0;
   const related = products.filter(x => x.category === product.category && x.id !== product.id).slice(0, 4);
-  const img = productImage(product);
+  const img = productImage(product, categories);
+  const fallback = productFallbackIcon(product, categories);
 
   const thumbnails = [img, img, img, img];
 
@@ -69,7 +72,7 @@ function ProductDetailsPage() {
         </Link>
         <ChevronRight className="size-3" />
         <Link to="/products" search={{ category: product.category }} className="hover:text-primary">
-          {categoryName(product.category)}
+          {categoryName(product.category, categories)}
         </Link>
         <ChevronRight className="size-3" />
         <span className="truncate font-semibold text-foreground">{product.name}</span>
@@ -78,10 +81,11 @@ function ProductDetailsPage() {
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
-            <img
-              src={thumbnails[selectedImage]}
-              alt={product.name}
-              className="aspect-square w-full object-cover"
+            <ProductImage
+              product={product}
+              categories={categories}
+              className="aspect-square w-full"
+              imgClassName="aspect-square w-full object-cover"
               width={800}
               height={800}
             />
@@ -121,7 +125,12 @@ function ProductDetailsPage() {
                   selectedImage === i ? "border-primary" : "border-border hover:border-primary/50",
                 )}
               >
-                <img src={thumb} alt="" className="size-full object-cover" />
+                <ProductImage
+                  product={product}
+                  categories={categories}
+                  className="size-full"
+                  imgClassName="size-full object-cover"
+                />
               </button>
             ))}
           </div>
@@ -222,7 +231,7 @@ function ProductDetailsPage() {
                 className="flex items-center gap-2 rounded-xl bg-green-600 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
               >
                 <Zap className="size-5" />
-                বাই নাও
+                এখনই কিনুন
               </button>
             )}
             <button

@@ -11,7 +11,13 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const ADMIN_STORAGE_KEY = "patgram_admin_auth";
 
-export type AdminUser = { name: string; email: string };
+export type AdminUser = { name: string; email: string; id: string };
+
+// Profile type returned from Supabase 'profiles' table
+interface Profile {
+  name: string | null;
+  email: string | null;
+}
 
 type AdminAuthContextValue = {
   isAdminAuthenticated: boolean;
@@ -24,50 +30,34 @@ type AdminAuthContextValue = {
 const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
 
 function getInitialAdminState(): { isAuth: boolean; user: AdminUser | null } {
-  if (typeof window === "undefined") {
-    return { isAuth: false, user: null };
-  }
+  if (typeof window === "undefined") return { isAuth: false, user: null };
   try {
     const raw = window.localStorage.getItem(ADMIN_STORAGE_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && (parsed.email === "admin@patgram.com" || parsed.isAdmin)) {
+      const parsed: Partial<AdminUser> = JSON.parse(raw);
+      if (parsed.email === "admin@patgram.com") {
         return {
           isAuth: true,
-          user: { name: parsed.name ?? "Admin", email: parsed.email ?? "admin@patgram.com" },
+          user: { name: parsed.name ?? "Admin", email: parsed.email!, id: parsed.id ?? "" },
         };
       }
     }
-  } catch (err) {
-    console.warn("Failed to load initial admin session:", err);
-  }
+  } catch {}
   return { isAuth: false, user: null };
 }
 
 async function fetchAdminProfile(userId: string): Promise<AdminUser | null> {
   if (!isSupabaseConfigured) return null;
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("profiles")
       .select("name, email")
       .eq("id", userId)
       .maybeSingle();
-
-    if (error) {
-      console.warn("Could not fetch admin profile from Supabase:", error.message);
-      return null;
-    }
-
     if (data) {
-      const profile = data as { name?: string | null; email?: string | null };
-      return {
-        name: profile.name || "Admin",
-        email: profile.email || "admin@patgram.com",
-      };
+      return { name: data.name ?? "Admin", email: data.email ?? "admin@patgram.com", id: userId };
     }
-  } catch (e) {
-    console.warn("Error fetching admin profile:", e);
-  }
+  } catch {}
   return null;
 }
 
@@ -77,65 +67,49 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(initial.user);
   const [hydrated, setHydrated] = useState<boolean>(false);
 
-  // Sync Supabase Auth listener
-  // Set hydrated flag after first render (client only)
   useEffect(() => {
     setHydrated(true);
   }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured) return;
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
-        const user = session.user;
-        const email = user.email?.trim().toLowerCase();
+        const email = session.user.email?.trim().toLowerCase();
         if (email === "admin@patgram.com") {
-          const profile = await fetchAdminProfile(user.id);
-          const u: AdminUser = profile ?? { name: "Admin", email: user.email ?? "admin@patgram.com" };
+          const profile = await fetchAdminProfile(session.user.id);
+          const u: AdminUser = profile ?? { name: "Admin", email: session.user.email ?? "admin@patgram.com", id: session.user.id };
           setAdminUser(u);
           setIsAdminAuthenticated(true);
           if (typeof window !== "undefined") {
-            window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify({ ...u, isAdmin: true }));
+            window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(u));
           }
         }
       } else if (event === "SIGNED_OUT") {
-        // If session in storage was from Supabase login, clear it
         if (typeof window !== "undefined") {
-          const raw = window.localStorage.getItem(ADMIN_STORAGE_KEY);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (!parsed?.isMasterLocal) {
-              window.localStorage.removeItem(ADMIN_STORAGE_KEY);
-              setIsAdminAuthenticated(false);
-              setAdminUser(null);
-            }
-          }
+          window.localStorage.removeItem(ADMIN_STORAGE_KEY);
         }
+        setIsAdminAuthenticated(false);
+        setAdminUser(null);
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Sync session on mount if available
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
-        const user = session.user;
-        const email = user.email?.trim().toLowerCase();
+        const email = session.user.email?.trim().toLowerCase();
         if (email === "admin@patgram.com") {
-          const profile = await fetchAdminProfile(user.id);
-          const u: AdminUser = profile ?? { name: "Admin", email: user.email ?? "admin@patgram.com" };
+          const profile = await fetchAdminProfile(session.user.id);
+          const u: AdminUser = profile ?? { name: "Admin", email: session.user.email ?? "admin@patgram.com", id: session.user.id };
           setAdminUser(u);
           setIsAdminAuthenticated(true);
           if (typeof window !== "undefined") {
-            window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify({ ...u, isAdmin: true }));
+            window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(u));
           }
         }
       }
@@ -144,67 +118,37 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
   const adminLogin = useCallback(
     async (emailInput: string, passwordInput: string): Promise<{ success: boolean; error?: string }> => {
+      if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
+
       const email = emailInput.trim().toLowerCase();
       const password = passwordInput.trim();
 
-      const isMasterAdmin = email === "admin@patgram.com" && password === "admin123";
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-      // 1. Try Supabase Auth if configured
-      if (isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password: passwordInput, // preserve exact password chars
-          });
-
-          if (!error && data?.user) {
-            const userEmail = data.user.email?.trim().toLowerCase();
-            if (userEmail === "admin@patgram.com" || isMasterAdmin) {
-              const profile = await fetchAdminProfile(data.user.id);
-              const u: AdminUser = profile ?? {
-                name: "Admin",
-                email: data.user.email ?? "admin@patgram.com",
-              };
-              setAdminUser(u);
-              setIsAdminAuthenticated(true);
-              if (typeof window !== "undefined") {
-                window.localStorage.setItem(
-                  ADMIN_STORAGE_KEY,
-                  JSON.stringify({ ...u, isAdmin: true, isMasterLocal: false }),
-                );
-              }
-              return { success: true };
-            } else {
-              // Not an admin user email
-              await supabase.auth.signOut();
-              return { success: false, error: "এই অ্যাকাউন্টের এডমিন অ্যাক্সেস নেই।" };
-            }
-          } else if (error) {
-            console.warn("Supabase Admin Sign-in Error:", error.message);
-          }
-        } catch (e: any) {
-          console.warn("Supabase Auth Exception:", e?.message);
+      if (error) {
+        console.error("Admin login error:", error.message, "status:", error.status);
+        if (error.status === 429) return { success: false, error: "অনেক বেশি চেষ্টা হয়েছে। কিছুক্ষণ অপেক্ষা করুন।" };
+        if (error.status === 400 && error.message.includes("Invalid login")) {
+          return { success: false, error: "ভুল Email বা Password! অথবা এই account তৈরি হয়নি। 'Create Account' এ গিয়ে account তৈরি করুন।" };
         }
+        return { success: false, error: error.message || "ভুল Email বা Password!" };
+      }
+      if (!data.user) return { success: false, error: "লগইন ব্যর্থ হয়েছে।" };
+
+      const userEmail = data.user.email?.trim().toLowerCase();
+      if (userEmail !== "admin@patgram.com") {
+        await supabase.auth.signOut();
+        return { success: false, error: "এই অ্যাকাউন্টের এডমিন অ্যাক্সেস নেই।" };
       }
 
-      // 2. Master Admin Fallback: If credentials match admin@patgram.com & admin123
-      if (isMasterAdmin) {
-        const u: AdminUser = { name: "Admin", email: "admin@patgram.com" };
-        setAdminUser(u);
-        setIsAdminAuthenticated(true);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(
-            ADMIN_STORAGE_KEY,
-            JSON.stringify({ ...u, isAdmin: true, isMasterLocal: true }),
-          );
-        }
-        return { success: true };
+      const profile = await fetchAdminProfile(data.user.id);
+      const u: AdminUser = profile ?? { name: "Admin", email: data.user.email ?? "admin@patgram.com", id: data.user.id };
+      setAdminUser(u);
+      setIsAdminAuthenticated(true);
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(u));
       }
-
-      return {
-        success: false,
-        error: "ভুল Email বা Password! দয়া করে সঠিক তথ্য দিন।",
-      };
+      return { success: true };
     },
     [],
   );
@@ -214,11 +158,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       window.localStorage.removeItem(ADMIN_STORAGE_KEY);
     }
     if (isSupabaseConfigured) {
-      try {
-        await supabase.auth.signOut();
-      } catch (err) {
-        console.warn("Sign out notice:", err);
-      }
+      await supabase.auth.signOut().catch(() => {});
     }
     setIsAdminAuthenticated(false);
     setAdminUser(null);
@@ -240,8 +180,6 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
 export function useAdminAuth() {
   const ctx = useContext(AdminAuthContext);
-  if (!ctx) {
-    throw new Error("useAdminAuth must be used inside AdminAuthProvider");
-  }
+  if (!ctx) throw new Error("useAdminAuth must be used inside AdminAuthProvider");
   return ctx;
 }

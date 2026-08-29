@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Package,
   Clock,
@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   MapPin,
   CreditCard,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 type Order = {
   id: string;
+  dbId: string;
   customer: string;
   phone: string;
   address: string;
@@ -28,6 +30,15 @@ type Order = {
   payment: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   date: string;
+};
+
+type StatusHistoryEntry = {
+  id: string;
+  order_id: string;
+  status: string;
+  note: string;
+  created_by: string | null;
+  created_at: string;
 };
 
 const statusSteps = ["pending", "processing", "shipped", "delivered"] as const;
@@ -51,67 +62,130 @@ const paymentLabels: Record<string, string> = {
 
 const ORDERS_KEY = "patgram_orders";
 
+function formatDateTime(iso: string) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const day = toBnNumber(d.getDate());
+    const monthNames = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+    const month = monthNames[d.getMonth()] || "";
+    const hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, "0");
+    const period = hours >= 12 ? "অপরাহ্ন" : "পূর্বাহ্ন";
+    const h12 = hours % 12 || 12;
+    return `${day} ${month}, ${toBnNumber(h12)}:${toBnNumber(minutes)} ${period}`;
+  } catch {
+    return iso;
+  }
+}
+
 function OrdersPage() {
   const { user } = useAuth();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortedOrders, setSortedOrders] = useState<Order[]>([]);
+  const [statusHistory, setStatusHistory] = useState<Record<string, StatusHistoryEntry[]>>({});
 
-  useEffect(() => {
-    async function loadOrders() {
-      if (!user) return;
+  const loadOrders = useCallback(async () => {
+    if (!user) return;
 
-      if (isSupabaseConfigured && user.id) {
-        const { data: ordersData } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("order_source", "online");
+    if (isSupabaseConfigured && user.id) {
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("order_source", "online");
 
-        if (ordersData) {
-          const ordersWithItems: Order[] = await Promise.all(
-            ordersData.map(async (order) => {
-              const { data: itemsData } = await supabase
-                .from("order_items")
-                .select("*")
-                .eq("order_id", order.id);
+      if (ordersData) {
+        const ordersWithItems: Order[] = await Promise.all(
+          ordersData.map(async (order) => {
+            const { data: itemsData } = await supabase
+              .from("order_items")
+              .select("*")
+              .eq("order_id", order["id"]);
 
-              return {
-                id: order.id,
-                customer: order.customer_name || "",
-                phone: order.phone || "",
-                address: order.address || "",
-                email: order.email || "",
-                items: (itemsData || []).map((item) => ({
-                  productId: item.product_id,
-                  name: item.product_name,
-                  price: item.price,
-                  qty: item.quantity,
-                })),
-                total: order.total || 0,
-                payment: order.payment_method || "COD",
-                status: order.status || "pending",
-                date: order.created_at || "",
-              };
-            }),
-          );
-          setSortedOrders(ordersWithItems.sort((a, b) => b.date.localeCompare(a.date)));
+            return {
+              id: (order["order_number"] as string) || (order["id"] as string) || "",
+              dbId: (order["id"] as string) || "",
+              customer: (order["customer_name"] as string) || "",
+              phone: (order["customer_phone"] as string) || "",
+              address: (order["address"] as string) || "",
+              email: (order["customer_email"] as string) || "",
+              items:
+                itemsData?.map((item) => ({
+                  productId: (item["product_id"] as string) || "",
+                  name: (item["product_name"] as string) || "",
+                  price: (item["unit_price"] as number) ?? 0,
+                  qty: (item["quantity"] as number) ?? 1,
+                })) ?? [],
+              total: (order["total_amount"] as number) ?? 0,
+              payment: (order["payment_method"] as string) || "COD",
+              status: (order["status"] as Order["status"]) || "pending",
+              date: (order["created_at"] as string)?.slice(0, 10) || "",
+            };
+          }),
+        );
+        setSortedOrders(ordersWithItems.sort((a, b) => b.date.localeCompare(a.date)));
+
+        const historyMap: Record<string, StatusHistoryEntry[]> = {};
+        for (const o of ordersWithItems) {
+          if (o.dbId) {
+            const { data: histData } = await supabase
+              .from("order_status_history")
+              .select("*")
+              .eq("order_id", o.dbId)
+              .order("created_at", { ascending: true });
+            if (histData) {
+              historyMap[o.id] = histData.map((h) => ({
+                id: h["id"] as string,
+                order_id: h["order_id"] as string,
+                status: h["status"] as string,
+                note: (h["note"] as string) || "",
+                created_by: (h["created_by"] as string) || null,
+                created_at: h["created_at"] as string,
+              }));
+            }
+          }
         }
-      } else {
-        try {
-          if (typeof window === "undefined") return;
-          const raw = window.localStorage.getItem(ORDERS_KEY);
-          const allOrders: Order[] = raw ? JSON.parse(raw) : [];
-          const myOrders = allOrders.filter(
-            (o) => o.email === user.email || o.phone === user.phone || o.customer === user.name,
-          );
-          setSortedOrders(myOrders.sort((a, b) => b.date.localeCompare(a.date)));
-        } catch {
-          setSortedOrders([]);
-        }
+        setStatusHistory(historyMap);
+      }
+    } else {
+      try {
+        if (typeof window === "undefined") return;
+        const raw = window.localStorage.getItem(ORDERS_KEY);
+        const allOrders: Order[] = raw ? JSON.parse(raw) : [];
+        const myOrders = allOrders.filter(
+          (o) => o.email === user.email || o.phone === user.phone || o.customer === user.name,
+        );
+        setSortedOrders(myOrders.sort((a, b) => b.date.localeCompare(a.date)));
+      } catch {
+        setSortedOrders([]);
       }
     }
-    loadOrders();
   }, [user]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !user?.id) return;
+
+    const channel = supabase
+      .channel("customer-orders-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "orders", filter: `user_id=eq.${user.id}` },
+        () => { loadOrders(); },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "order_status_history" },
+        () => { loadOrders(); },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, loadOrders]);
 
   if (!user) {
     return (
@@ -169,7 +243,7 @@ function OrdersPage() {
       {activeOrder && (
         <div className="mb-8">
           <h2 className="mb-4 text-sm font-bold text-muted-foreground">সক্রিয় অর্ডার</h2>
-          <ActiveOrderCard order={activeOrder} />
+          <ActiveOrderCard order={activeOrder} history={statusHistory[activeOrder.id] || []} />
         </div>
       )}
 
@@ -183,6 +257,7 @@ function OrdersPage() {
                 order={order}
                 expanded={expandedId === order.id}
                 onToggle={() => setExpandedId(expandedId === order.id ? null : order.id)}
+                history={statusHistory[order.id] || []}
               />
             ))}
           </div>
@@ -192,9 +267,129 @@ function OrdersPage() {
   );
 }
 
-function ActiveOrderCard({ order }: { order: Order }) {
-  const currentStep = statusSteps.indexOf(order.status as typeof statusSteps[number]);
-  const config = statusConfig[order.status];
+function StatusTimeline({ status, history }: { status: Order["status"]; history: StatusHistoryEntry[] }) {
+  const isCancelled = status === "cancelled";
+  const currentStep = statusSteps.indexOf(status as typeof statusSteps[number]);
+  const cancelledEntry = isCancelled ? history.find((h) => h.status === "cancelled") : null;
+
+  const getTimestamp = (stepStatus: string) => {
+    const entry = history.find((h) => h.status === stepStatus);
+    return entry ? formatDateTime(entry.created_at) : null;
+  };
+
+  if (isCancelled) {
+    const pendingTime = getTimestamp("pending");
+    const cancelledTime = getTimestamp("cancelled");
+    const wasProcessing = history.some((h) => h.status === "processing");
+    const processingTime = wasProcessing ? getTimestamp("processing") : null;
+
+    return (
+      <div className="space-y-0">
+        <div className="flex items-start gap-3">
+          <div className="flex flex-col items-center">
+            <div className="flex size-8 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <CheckCircle className="size-4" />
+            </div>
+            <div className="w-0.5 h-8 bg-border" />
+          </div>
+          <div className="pb-4">
+            <p className="text-sm font-bold text-green-600">অর্ডার দেওয়া হয়েছে</p>
+            {pendingTime && <p className="text-xs text-muted-foreground">{pendingTime}</p>}
+          </div>
+        </div>
+
+        {wasProcessing && (
+          <div className="flex items-start gap-3">
+            <div className="flex flex-col items-center">
+              <div className="flex size-8 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <CheckCircle className="size-4" />
+              </div>
+              <div className="w-0.5 h-8 bg-border" />
+            </div>
+            <div className="pb-4">
+              <p className="text-sm font-bold text-green-600">প্রসেসিং</p>
+              {processingTime && <p className="text-xs text-muted-foreground">{processingTime}</p>}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-start gap-3">
+          <div className="flex flex-col items-center">
+            <div className="flex size-8 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <XCircle className="size-4" />
+            </div>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-red-600">বাতিল করা হয়েছে</p>
+            {cancelledTime && <p className="text-xs text-muted-foreground">{cancelledTime}</p>}
+            {cancelledEntry?.note && (
+              <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5">
+                <AlertCircle className="size-3.5 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-red-600">{cancelledEntry.note}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0">
+      {statusSteps.map((step, i) => {
+        const isCompleted = i <= currentStep;
+        const isCurrent = i === currentStep;
+        const timestamp = getTimestamp(step);
+        const stepConfig = statusConfig[step];
+        const StepIcon = stepConfig?.icon || Clock;
+
+        return (
+          <div key={step} className="flex items-start gap-3">
+            <div className="flex flex-col items-center">
+              <div
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-full transition",
+                  isCompleted
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground",
+                  isCurrent && "ring-2 ring-primary/30 ring-offset-2",
+                )}
+              >
+                <StepIcon className="size-4" />
+              </div>
+              {i < statusSteps.length - 1 && (
+                <div
+                  className={cn(
+                    "w-0.5 h-8",
+                    i < currentStep ? "bg-primary" : "bg-border",
+                  )}
+                />
+              )}
+            </div>
+            <div className={cn("pb-4", i < statusSteps.length - 1 && "")}>
+              <p
+                className={cn(
+                  "text-sm font-bold",
+                  isCompleted ? "text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {stepConfig?.label}
+              </p>
+              {timestamp ? (
+                <p className="text-xs text-muted-foreground">{timestamp}</p>
+              ) : !isCompleted ? (
+                <p className="text-xs text-muted-foreground italic">অপেক্ষমান...</p>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ActiveOrderCard({ order, history }: { order: Order; history: StatusHistoryEntry[] }) {
+  const config = statusConfig[order.status]!;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-soft">
@@ -209,30 +404,8 @@ function ActiveOrderCard({ order }: { order: Order }) {
         </div>
       </div>
 
-      <div className="mb-6 flex items-center gap-1">
-        {statusSteps.map((step, i) => {
-          const isCompleted = i <= currentStep;
-          return (
-            <div key={step} className="flex flex-1 items-center">
-              <div className="flex flex-1 flex-col items-center gap-1.5">
-                <div
-                  className={cn(
-                    "flex size-8 items-center justify-center rounded-full text-xs font-bold transition",
-                    isCompleted ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
-                  )}
-                >
-                  {i + 1}
-                </div>
-                <span className={cn("text-[10px] font-semibold", isCompleted ? "text-primary" : "text-muted-foreground")}>
-                  {statusConfig[step].label}
-                </span>
-              </div>
-              {i < statusSteps.length - 1 && (
-                <div className={cn("mx-1 h-0.5 flex-1 rounded-full", i < currentStep ? "bg-primary" : "bg-muted")} />
-              )}
-            </div>
-          );
-        })}
+      <div className="mb-6 rounded-xl bg-surface p-4">
+        <StatusTimeline status={order.status} history={history} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3 text-sm">
@@ -275,12 +448,14 @@ function PastOrderCard({
   order,
   expanded,
   onToggle,
+  history,
 }: {
   order: Order;
   expanded: boolean;
   onToggle: () => void;
+  history: StatusHistoryEntry[];
 }) {
-  const config = statusConfig[order.status];
+  const config = statusConfig[order.status]!;
 
   return (
     <div className="rounded-2xl border border-border bg-card shadow-soft">
@@ -309,7 +484,14 @@ function PastOrderCard({
       </button>
 
       {expanded && (
-        <div className="border-t border-border px-4 py-4">
+        <div className="border-t border-border px-4 py-4 space-y-4">
+          {history.length > 0 && (
+            <div className="rounded-xl bg-surface p-4">
+              <p className="mb-3 text-xs font-bold text-muted-foreground">অর্ডার ট্র্যাকিং</p>
+              <StatusTimeline status={order.status} history={history} />
+            </div>
+          )}
+
           <div className="space-y-2">
             {order.items.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
@@ -318,7 +500,7 @@ function PastOrderCard({
               </div>
             ))}
           </div>
-          <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>পেমেন্ট: {paymentLabels[order.payment] || order.payment}</span>
             {order.address && <span>ঠিকানা: {order.address}</span>}
           </div>

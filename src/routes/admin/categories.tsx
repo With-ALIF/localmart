@@ -149,7 +149,7 @@ function CategoriesContent() {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{c.slug}</td>
-                    <td className="px-4 py-3">{toBnNumber(productCount(c.slug))}</td>
+                    <td className="px-4 py-3">{toBnNumber(productCount(c.id))}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button

@@ -53,27 +53,28 @@ export function usePosStore() {
         if (error) {
           setSales(loadPOSSalesLocal());
         } else {
-          const mapped: POSSale[] = (data || []).map((o) => ({
-            id: o.id,
-            saleNumber: o.order_number,
-            customerName: o.customer_name || "Walk-in Customer",
-            customerPhone: o.customer_phone || "",
-            items: [],
-            subtotal: o.subtotal || 0,
-            discountType: "fixed" as const,
-            discountValue: 0,
-            discountAmount: o.discount_amount || 0,
-            total: o.total_amount || 0,
-            paymentMethod: (o.payment_method as POSPaymentMethod) || "cash",
-            paymentStatus: (o.payment_status as POSPaymentStatus) || "paid",
-            paidAmount: o.paid_amount || 0,
-            dueAmount: o.due_amount || 0,
-            adminName: o.admin_name || "",
-            date: new Date(o.created_at).toLocaleDateString("en-GB"),
-            time: new Date(o.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-            createdAt: o.created_at,
-            source: "pos" as const,
-          }));
+          const mapped: POSSale[] =
+            data?.map((o) => ({
+              id: o.id,
+              saleNumber: o.order_number,
+              customerName: o.customer_name || "Walk-in Customer",
+              customerPhone: o.customer_phone || "",
+              items: [],
+              subtotal: o.subtotal || 0,
+              discountType: "fixed" as const,
+              discountValue: 0,
+              discountAmount: o.discount_amount || 0,
+              total: o.total_amount || 0,
+              paymentMethod: (o.payment_method as POSPaymentMethod) || "cash",
+              paymentStatus: (o.payment_status as POSPaymentStatus) || "paid",
+              paidAmount: o.paid_amount || 0,
+              dueAmount: o.due_amount || 0,
+              adminName: o.admin_name || "",
+              date: new Date(o.created_at).toLocaleDateString("en-GB"),
+              time: new Date(o.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+              createdAt: o.created_at,
+              source: "pos" as const,
+            })) ?? [];
 
           const { data: itemsData } = await supabase
             .from("order_items")

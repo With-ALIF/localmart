@@ -89,8 +89,8 @@ function SettingsContent() {
           .select("value")
           .eq("key", "store_settings")
           .single();
-        if (data?.value) {
-          setSettings({ ...defaultSettings, ...data.value });
+        if (data?.value && typeof data.value === "object" && !Array.isArray(data.value)) {
+          setSettings({ ...defaultSettings, ...(data.value as Partial<Settings>) });
         }
       } else {
         try {
@@ -114,7 +114,7 @@ function SettingsContent() {
     if (isSupabaseConfigured) {
       await supabase
         .from("settings")
-        .upsert({ key: "store_settings", value: settings }, { onConflict: "key" });
+        .upsert({ key: "store_settings", value: settings as unknown as import("@/lib/database.types").Json }, { onConflict: "key" });
     } else {
       window.localStorage.setItem("patgram_settings", JSON.stringify(settings));
     }
