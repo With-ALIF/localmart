@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 import type { Product, CategorySlug } from "@/data/catalog";
 
 function AddProductPage() {
@@ -122,27 +123,21 @@ function AddProductPage() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-bold">Product Image URL</label>
+              <label className="mb-1.5 block text-xs font-bold">Product Image</label>
               <input
                 value={form.image}
                 onChange={(e) => update("image", e.target.value)}
                 placeholder="https://example.com/image.jpg"
                 className="h-11 w-full rounded-xl border border-border bg-surface px-4 text-sm outline-none focus:border-primary"
               />
-              {form.image && (
-                <div className="mt-2 flex items-center gap-3">
-                  <img src={form.image} alt="" className="h-16 w-16 rounded-lg object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => update("image", "")}
-                    className="text-xs font-semibold text-destructive hover:underline"
-                  >
-                    মুছুন
-                  </button>
-                </div>
-              )}
+              <div className="mt-2">
+                <ImageUploader
+                  value={form.image}
+                  onChange={(v) => update("image", v)}
+                />
+              </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                URL দিন অথবা খালি রাখলে ক্যাটাগরি অনুযায়ী ছবি ব্যবহার হবে
+                URL দিন অথবা ছবি আপলোড করুন (auto resize max 100KB)। খালি রাখলে ক্যাটাগরি অনুযায়ী ছবি ব্যবহার হবে
               </p>
             </div>
           </div>

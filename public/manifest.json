@@ -1,0 +1,28 @@
+{
+  "name": "Patgram Online Shop",
+  "short_name": "Patgram",
+  "description": "নিত্যপ্রয়োজনীয় মুদি থেকে ইলেকট্রনিক্স — সবকিছু এক জায়গায়, সেরা দামে ও দ্রুত ডেলিভারিতে।",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/localmart.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/localmart.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/localmart.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

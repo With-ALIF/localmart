@@ -15,6 +15,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { toBnNumber, formatTaka } from "@/lib/format";
+import { productSlug } from "@/data/catalog";
 import { cn } from "@/lib/utils";
 import { ProductImage } from "./ProductImage";
 
@@ -69,7 +70,10 @@ export function Header() {
 
   const handleSuggestionClick = (id: string) => {
     setFocused(false);
-    navigate({ to: "/product/$productId", params: { productId: id } });
+    const product = products.find(p => p.id === id);
+    if (product) {
+      navigate({ to: "/product/$slug", params: { slug: productSlug(product.name) } });
+    }
   };
 
   return (

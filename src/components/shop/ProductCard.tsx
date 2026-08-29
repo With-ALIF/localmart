@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Heart, ShoppingCart, Zap, Star, Sparkles, Check } from "lucide-react";
 import { toast } from "sonner";
-import { discountPercent, type Product } from "@/data/catalog";
+import { discountPercent, productSlug, type Product } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
@@ -22,8 +22,8 @@ export function ProductCard({ product }: { product: Product }) {
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition duration-300 hover:-translate-y-0.5 hover:shadow-hover">
       <Link
-        to="/product/$productId"
-        params={{ productId: product.id }}
+        to="/product/$slug"
+        params={{ slug: productSlug(product.name) }}
         className="relative block overflow-hidden bg-white p-3 pb-0"
       >
         <ProductImage
@@ -63,7 +63,7 @@ export function ProductCard({ product }: { product: Product }) {
       </button>
 
       <div className="flex flex-1 flex-col gap-1.5 p-3 pt-2.5">
-        <Link to="/product/$productId" params={{ productId: product.id }}>
+        <Link to="/product/$slug" params={{ slug: productSlug(product.name) }}>
           <h3 className="line-clamp-1 text-[13px] font-bold leading-snug transition group-hover:text-primary">
             {product.name}
           </h3>
@@ -102,7 +102,7 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-[11px] text-muted-foreground">{product.unit}</span>
         </div>
 
-        <div className="mt-auto grid grid-cols-2 gap-1.5">
+        <div className="mt-auto flex flex-col gap-1.5">
           <button
             disabled={!inStock || cartState !== "idle"}
             onClick={() => {

@@ -19,6 +19,7 @@ import { DataProvider } from "../lib/admin/admin-data";
 import { Header } from "../components/shop/Header";
 import { Footer } from "../components/shop/Footer";
 import { MobileBottomNav } from "../components/shop/MobileBottomNav";
+import { PwaInstallBanner } from "../components/shop/PwaInstallBanner";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { toBnNumber } from "../lib/format";
 
@@ -99,10 +100,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#16a34a" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { name: "apple-mobile-web-app-title", content: "Patgram" },
+      { name: "mobile-web-app-capable", content: "yes" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.json" },
+      { rel: "apple-touch-icon", href: "/localmart.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
@@ -136,6 +144,12 @@ function RootComponent() {
   const matches = useMatches();
   const isAdmin = matches.some((m) => m.pathname.startsWith("/admin"));
 
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -149,6 +163,7 @@ function RootComponent() {
                 </main>
                 {!isAdmin && <Footer />}
                 {!isAdmin && <MobileBottomNav />}
+                {!isAdmin && <PwaInstallBanner />}
               </div>
               <Toaster position="top-center" richColors />
             </ShopProvider>

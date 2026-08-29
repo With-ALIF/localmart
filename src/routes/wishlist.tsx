@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Heart, ShoppingCart, Trash2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useShop } from "@/lib/shop-store";
-import { discountPercent } from "@/data/catalog";
+import { discountPercent, productSlug } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { ProductImage } from "@/components/shop/ProductImage";
 
@@ -54,8 +54,8 @@ function WishlistPage() {
               className="group relative flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-soft"
             >
               <Link
-                to="/product/$productId"
-                params={{ productId: product.id }}
+                to="/product/$slug"
+                params={{ slug: productSlug(product.name) }}
                 className="relative block overflow-hidden bg-surface"
               >
                 <ProductImage
@@ -84,7 +84,7 @@ function WishlistPage() {
               </button>
 
               <div className="flex flex-1 flex-col gap-2 p-4">
-                <Link to="/product/$productId" params={{ productId: product.id }}>
+                <Link to="/product/$slug" params={{ slug: productSlug(product.name) }}>
                   <h3 className="line-clamp-2 text-sm font-bold leading-snug transition group-hover:text-primary">
                     {product.name}
                   </h3>

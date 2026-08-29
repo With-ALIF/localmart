@@ -19,6 +19,7 @@ import {
   categoryName,
   productImage,
   productFallbackIcon,
+  productSlug,
 } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
@@ -28,9 +29,10 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { cn } from "@/lib/utils";
 
 function ProductDetailsPage() {
-  const { productId } = Route.useParams();
+  const { slug } = Route.useParams();
+  const decodedSlug = decodeURIComponent(slug);
   const { addToCart, toggleWishlist, isWishlisted, products, categories } = useShop();
-  const product = products.find(p => p.id === productId);
+  const product = products.find(p => productSlug(p.name) === decodedSlug || p.id === decodedSlug);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [qty, setQty] = useState(1);
@@ -71,7 +73,7 @@ function ProductDetailsPage() {
           পণ্য
         </Link>
         <ChevronRight className="size-3" />
-        <Link to="/products" search={{ category: product.category }} className="hover:text-primary">
+        <Link to="/products" search={{ category: categories.find(c => c.id === product.category)?.slug || product.category }} className="hover:text-primary">
           {categoryName(product.category, categories)}
         </Link>
         <ChevronRight className="size-3" />
@@ -287,6 +289,6 @@ function ProductDetailsPage() {
   );
 }
 
-export const Route = createFileRoute("/product/$productId")({
+export const Route = createFileRoute("/product/$slug")({
   component: ProductDetailsPage,
 });

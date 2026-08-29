@@ -286,6 +286,28 @@ function OrdersContent() {
                   <span className="text-muted-foreground">Payment</span>
                   <span className="font-semibold">{viewOrder.payment}</span>
                 </div>
+                {viewOrder.payment === "bKash" && viewHistory.length > 0 && (() => {
+                  const note = viewHistory[0]?.note || "";
+                  const trxMatch = note.match(/TrxID:\s*(\S+)/);
+                  const senderMatch = note.match(/Sender:\s*(\S+)/);
+                  if (trxMatch) {
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">bKash TrxID</span>
+                          <span className="font-semibold text-[#E2136E]">{trxMatch[1]}</span>
+                        </div>
+                        {senderMatch && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sender</span>
+                            <span className="font-semibold">{senderMatch[1]}</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
 
               <div className="mt-4 border-t border-border pt-4">

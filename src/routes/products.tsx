@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   discountPercent,
-  type CategorySlug,
+  productSlug,
   type Product,
 } from "@/data/catalog";
 import { ProductCard } from "@/components/shop/ProductCard";
@@ -53,7 +53,7 @@ function sortProducts(list: Product[], sort: SortKey) {
 function parseSearch(search: Record<string, unknown>) {
   return {
     q: (search.q as string) || "",
-    category: (search.category as CategorySlug) || ("" as CategorySlug),
+    category: (search.category as string) || "",
     sort: (search.sort as SortKey) || "popular",
     minPrice: Number(search.minPrice) || 0,
     maxPrice: Number(search.maxPrice) || 0,
@@ -76,8 +76,8 @@ function ProductListItem({ product }: { product: Product }) {
   return (
     <article className="group relative flex overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition duration-300 hover:-translate-y-0.5 hover:shadow-hover">
       <Link
-        to="/product/$productId"
-        params={{ productId: product.id }}
+        to="/product/$slug"
+        params={{ slug: productSlug(product.name) }}
         className="relative block w-36 shrink-0 overflow-hidden bg-white p-2 sm:w-44"
       >
         <ProductImage
@@ -115,7 +115,7 @@ function ProductListItem({ product }: { product: Product }) {
       </button>
 
       <div className="flex flex-1 flex-col gap-1.5 p-3">
-        <Link to="/product/$productId" params={{ productId: product.id }}>
+        <Link to="/product/$slug" params={{ slug: productSlug(product.name) }}>
           <h3 className="line-clamp-2 text-sm font-bold leading-snug transition group-hover:text-primary">
             {product.name}
           </h3>
@@ -176,7 +176,8 @@ function ProductsPage() {
   const filtered = useMemo(() => {
     let list = allProducts.filter(p => p.name.toLowerCase().includes(params.q.toLowerCase()) || p.brand.toLowerCase().includes(params.q.toLowerCase()));
     if (params.category) {
-      list = list.filter((p) => p.category === params.category);
+      const catId = categories.find((c) => c.slug === params.category || c.id === params.category)?.id;
+      if (catId) list = list.filter((p) => p.category === catId);
     }
     if (params.minPrice > 0) {
       list = list.filter((p) => p.price >= params.minPrice);
@@ -213,8 +214,21 @@ function ProductsPage() {
     navigate({
       search: (prev) => {
         const next = { ...prev, ...updates };
+        const defaults: Record<string, string> = {
+          q: "",
+          category: "",
+          sort: "popular",
+          minPrice: "0",
+          maxPrice: "0",
+          minRating: "0",
+          inStock: "",
+          page: "1",
+          view: "grid",
+        };
         Object.keys(next).forEach((k) => {
-          if (!next[k]) delete next[k];
+          if (next[k] === undefined || next[k] === null || next[k] === defaults[k]) {
+            delete next[k];
+          }
         });
         return next;
       },
@@ -235,7 +249,7 @@ function ProductsPage() {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-extrabold sm:text-3xl">
           {params.category
-            ? categories.find((c) => c.id === params.category)?.name || "পণ্য"
+            ? categories.find((c) => c.slug === params.category || c.id === params.category)?.name || "পণ্য"
             : params.q
               ? `"${params.q}" এর ফলাফল`
               : "সব পণ্য"}
@@ -341,7 +355,7 @@ function ProductsPage() {
               >
                 <option value="">সব ক্যাটাগরি</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option key={c.id} value={c.slug}>
                     {c.name}
                   </option>
                 ))}
@@ -474,14 +488,14 @@ function ProductsPage() {
 export const Route = createFileRoute("/products")({
   component: ProductsPage,
   validateSearch: (search: Record<string, unknown>) => ({
-    q: (search.q as string) || "",
-    category: (search.category as string) || "",
-    sort: (search.sort as string) || "popular",
-    minPrice: Number(search.minPrice) || 0,
-    maxPrice: Number(search.maxPrice) || 0,
-    minRating: Number(search.minRating) || 0,
-    inStock: (search.inStock as string) || "",
-    page: Number(search.page) || 1,
-    view: (search.view as string) || "grid",
+    q: (search.q as string) || undefined,
+    category: (search.category as string) || undefined,
+    sort: (search.sort as string) || undefined,
+    minPrice: Number(search.minPrice) || undefined,
+    maxPrice: Number(search.maxPrice) || undefined,
+    minRating: Number(search.minRating) || undefined,
+    inStock: (search.inStock as string) || undefined,
+    page: Number(search.page) || undefined,
+    view: (search.view as string) || undefined,
   }),
 });

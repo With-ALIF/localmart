@@ -6,8 +6,6 @@ import {
   Shield,
   Headphones,
   Tag,
-  Zap,
-  Clock,
 } from "lucide-react";
 import { useShop } from "@/lib/shop-store";
 import { ProductCard } from "@/components/shop/ProductCard";
@@ -154,7 +152,7 @@ function CategorySection({ categories, products }: { categories: any[]; products
           <Link
             key={c.id}
             to="/products"
-            search={{ category: c.id }}
+            search={{ category: c.slug }}
             className="group flex shrink-0 flex-col items-center gap-2 rounded-2xl border border-border bg-card p-3 text-center shadow-soft transition hover:-translate-y-0.5 hover:border-primary hover:shadow-hover sm:shrink sm:p-4"
           >
             <span className="flex size-14 items-center justify-center rounded-full bg-surface text-2xl transition group-hover:bg-primary/10 group-hover:scale-110 sm:size-16">
@@ -166,77 +164,6 @@ function CategorySection({ categories, products }: { categories: any[]; products
             </span>
           </Link>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function FlashSaleBanner() {
-  const [timeLeft, setTimeLeft] = useState({ hours: 5, minutes: 32, seconds: 18 });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        let { hours, minutes, seconds } = prev;
-        if (seconds > 0) {
-          seconds--;
-        } else if (minutes > 0) {
-          minutes--;
-          seconds = 59;
-        } else if (hours > 0) {
-          hours--;
-          minutes = 59;
-          seconds = 59;
-        }
-        return { hours, minutes, seconds };
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const pad = (n: number) => String(n).padStart(2, "0");
-
-  return (
-    <section className="container-page mt-12">
-      <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-red-600 via-rose-600 to-pink-600 p-4 text-white shadow-lg sm:p-6">
-        <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex size-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <Zap className="size-6" />
-            </span>
-            <div>
-              <h2 className="font-display text-lg font-extrabold sm:text-xl">ফ্ল্যাশ সেল!</h2>
-              <p className="mt-0.5 text-xs text-white/80">
-                সীমিত সময়ের জন্য সর্বোচ্চ ৪০% পর্যন্ত ছাড়
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Clock className="size-4 text-white/70" />
-            <div className="flex items-center gap-1">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-white/20 font-display text-lg font-extrabold backdrop-blur-sm">
-                {pad(timeLeft.hours)}
-              </span>
-              <span className="text-sm font-bold">:</span>
-              <span className="flex size-10 items-center justify-center rounded-lg bg-white/20 font-display text-lg font-extrabold backdrop-blur-sm">
-                {pad(timeLeft.minutes)}
-              </span>
-              <span className="text-sm font-bold">:</span>
-              <span className="flex size-10 items-center justify-center rounded-lg bg-white/20 font-display text-lg font-extrabold backdrop-blur-sm">
-                {pad(timeLeft.seconds)}
-              </span>
-            </div>
-          </div>
-
-          <Link
-            to="/offers"
-            className="inline-flex items-center gap-1.5 rounded-full bg-white px-5 py-2 text-xs font-bold text-rose-600 shadow-lg transition hover:shadow-xl hover:scale-105"
-          >
-            সব অফার দেখুন
-            <ArrowRight className="size-3.5" />
-          </Link>
-        </div>
       </div>
     </section>
   );
@@ -345,7 +272,6 @@ function HomePage() {
       <HeroBanner />
       <TrustBadges />
       <CategorySection categories={categories} products={products} />
-      <FlashSaleBanner />
       <PopularSection products={products} />
       <NewArrivalsSection products={products} />
       <OffersSection products={products} />

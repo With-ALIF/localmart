@@ -65,3 +65,12 @@ export const searchProducts = (query: string, list: Product[]) => {
       p.brand.toLowerCase().includes(q)
   );
 };
+
+export function productSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\w\s\u0980-\u09FF-]/g, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}

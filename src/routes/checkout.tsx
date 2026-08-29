@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { Shield, Truck, CreditCard, MapPin, ArrowLeft, CheckCircle, Home, Building, Plus } from "lucide-react";
+import { Shield, Truck, CreditCard, MapPin, ArrowLeft, CheckCircle, Home, Building, Plus, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
@@ -30,6 +30,13 @@ function CheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [selectedAddrId, setSelectedAddrId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
+  const [bkashTrxId, setBkashTrxId] = useState("");
+  const [bkashSenderPhone, setBkashSenderPhone] = useState("");
+  const [nagadTrxId, setNagadTrxId] = useState("");
+  const [copiedNumber, setCopiedNumber] = useState(false);
+
+  const BKASH_MERCHANT = "01711144376";
+  const NAGAD_MERCHANT = "01711144376";
 
   useEffect(() => {
     async function loadAddresses() {
@@ -100,6 +107,16 @@ function CheckoutPage() {
       return;
     }
 
+    if (payment === "bkash" && !bkashTrxId.trim()) {
+      toast.error("bKash Transaction ID দিন");
+      return;
+    }
+
+    if (payment === "nagad" && !nagadTrxId.trim()) {
+      toast.error("Nagad Transaction ID দিন");
+      return;
+    }
+
     const timestamp = Date.now();
     const orderNumber = "ORD-" + timestamp;
 
@@ -158,7 +175,11 @@ function CheckoutPage() {
       await supabase.from("order_status_history").insert({
         order_id: orderData.id,
         status: "pending",
-        note: "Order placed",
+        note: payment === "bkash"
+          ? `Order placed. bKash TrxID: ${bkashTrxId.trim()}`
+          : payment === "nagad"
+          ? `Order placed. Nagad TrxID: ${nagadTrxId.trim()}`
+          : "Order placed",
         created_by: userId,
       });
     } else {
@@ -176,6 +197,8 @@ function CheckoutPage() {
         })),
         total,
         payment: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
+        bkashTrxId: payment === "bkash" ? bkashTrxId.trim() : "",
+        bkashSender: payment === "bkash" ? bkashSenderPhone.trim() : "",
         status: "pending" as const,
         date: new Date().toISOString().split("T")[0],
       };
@@ -407,6 +430,169 @@ function CheckoutPage() {
               ))}
             </div>
           </div>
+
+          {payment === "bkash" && (
+            <div className="mt-3 overflow-hidden rounded-lg bg-[#E2136E] p-5">
+              <div className="mt-3 text-center">
+                <h2 className="mb-3 font-bangla font-semibold text-white">ট্রানজেকশন আইডি দিন</h2>
+                <input
+                  type="text"
+                  value={bkashTrxId}
+                  onChange={(e) => setBkashTrxId(e.target.value)}
+                  placeholder="ট্রানজেকশন আইডি দিন"
+                  maxLength={15}
+                  required
+                  autoComplete="off"
+                  className="w-full appearance-none rounded-[10px] bg-white px-5 py-3.5 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0057d0] sm:bg-[#fbfcff]"
+                />
+              </div>
+
+              <div className="mt-3 text-center">
+                <h2 className="mb-3 font-bangla font-semibold text-white">আপনার bKash নম্বর (ঐচ্ছিক)</h2>
+                <input
+                  type="tel"
+                  value={bkashSenderPhone}
+                  onChange={(e) => setBkashSenderPhone(e.target.value)}
+                  placeholder="01XXXXXXXXX"
+                  maxLength={12}
+                  autoComplete="off"
+                  className="w-full appearance-none rounded-[10px] bg-white px-5 py-3.5 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0057d0] sm:bg-[#fbfcff]"
+                />
+              </div>
+
+              <ul className="mt-5 text-sm text-white">
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">
+                    <span>*247#</span> ডায়াল করে আপনার bKash মোবাইল মেনুতে যান অথবা bKash অ্যাপ খুলুন।
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="sm:w-[90%] font-bangla">
+                    উপরের নম্বরে টাকা পাঠান।{" "}
+                    <span className="ml-1 font-semibold text-yellow-300">{BKASH_MERCHANT}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(BKASH_MERCHANT);
+                        setCopiedNumber(true);
+                        toast.success("নম্বর কপি হয়েছে!");
+                        setTimeout(() => setCopiedNumber(false), 2000);
+                      }}
+                      className="mx-2 inline-block rounded-md bg-black/40 px-2 py-0.5 text-xs"
+                    >
+                      {copiedNumber ? "কপি হয়েছে ✓" : "কপি"}
+                    </button>
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">
+                    টাকার পরিমাণঃ{" "}
+                    <span className="ml-1 font-semibold text-yellow-300">{formatTaka(total)}</span>
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">নিশ্চিত করে এখন আপনার bKash PIN লিখুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে ভেরিফাই চাপুন।</p>
+                </li>
+              </ul>
+            </div>
+          )}
+
+          {payment === "nagad" && (
+            <div className="mt-3 overflow-hidden rounded-lg bg-[#F62B2B] p-5">
+              <div className="mt-3 text-center">
+                <h2 className="mb-3 font-bangla font-semibold text-white">ট্রানজেকশন আইডি দিন</h2>
+                <input
+                  type="text"
+                  value={nagadTrxId}
+                  onChange={(e) => setNagadTrxId(e.target.value)}
+                  placeholder="ট্রানজেকশন আইডি দিন"
+                  maxLength={15}
+                  required
+                  autoComplete="off"
+                  className="w-full appearance-none rounded-[10px] bg-white px-5 py-3.5 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#F62B2B] sm:bg-[#fbfcff]"
+                />
+              </div>
+
+              <ul className="mt-5 text-sm text-white">
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">
+                    <span>*167#</span> ডায়াল করে আপনার NAGAD মোবাইল মেনুতে যান অথবা NAGAD অ্যাপে যান।
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="sm:w-[90%] font-bangla">
+                    উপরের নম্বরে টাকা পাঠান।{" "}
+                    <span className="ml-1 font-semibold text-yellow-300">{NAGAD_MERCHANT}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(NAGAD_MERCHANT);
+                        setCopiedNumber(true);
+                        toast.success("নম্বর কপি হয়েছে!");
+                        setTimeout(() => setCopiedNumber(false), 2000);
+                      }}
+                      className="mx-2 inline-block rounded-md bg-black/40 px-2 py-0.5 text-xs"
+                    >
+                      {copiedNumber ? "কপি হয়েছে ✓" : "কপি"}
+                    </button>
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">
+                    টাকার পরিমাণঃ{" "}
+                    <span className="ml-1 font-semibold text-yellow-300">{formatTaka(total)}</span>
+                  </p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">নিশ্চিত করে এখন আপনার NAGAD মোবাইল মেনু PIN লিখুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</p>
+                </li>
+                <hr className="my-3 border-white/20" />
+                <li className="flex">
+                  <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
+                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে ভেরিফাই চাপুন।</p>
+                </li>
+              </ul>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-border bg-card p-6 shadow-soft lg:hidden">
             <h2 className="mb-4 font-display text-lg font-bold">অর্ডার সারসংক্ষেপ</h2>

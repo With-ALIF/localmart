@@ -3,7 +3,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
-import { discountPercent } from "@/data/catalog";
+import { discountPercent, productSlug } from "@/data/catalog";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { ProductImage } from "@/components/shop/ProductImage";
 
@@ -74,8 +74,8 @@ function CartPage() {
                 className="flex gap-4 rounded-2xl border border-border bg-card p-4 shadow-soft sm:p-5"
               >
                 <Link
-                  to="/product/$productId"
-                  params={{ productId: product.id }}
+                  to="/product/$slug"
+                  params={{ slug: productSlug(product.name) }}
                   className="relative shrink-0 overflow-hidden rounded-xl"
                 >
                   <ProductImage
@@ -94,8 +94,8 @@ function CartPage() {
                 <div className="flex flex-1 flex-col justify-between">
                   <div>
                     <Link
-                      to="/product/$productId"
-                      params={{ productId: product.id }}
+                      to="/product/$slug"
+                      params={{ slug: productSlug(product.name) }}
                       className="text-sm font-bold leading-snug transition hover:text-primary sm:text-base"
                     >
                       {product.name}

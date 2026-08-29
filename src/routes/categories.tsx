@@ -17,7 +17,7 @@ function CategoriesPage() {
             <Link
               key={c.id}
               to="/products"
-              search={{ category: c.id }}
+              search={{ category: c.slug }}
               className="group overflow-hidden rounded-2xl border border-border bg-card shadow-soft transition hover:-translate-y-1 hover:shadow-hover"
             >
               <div className="relative aspect-[4/3] overflow-hidden bg-surface">

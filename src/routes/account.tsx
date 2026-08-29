@@ -36,7 +36,7 @@ import { useAuth } from "@/lib/auth-store";
 import { useShop } from "@/lib/shop-store";
 import { formatTaka, toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { type Product } from "@/data/catalog";
+import { productSlug, type Product } from "@/data/catalog";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { ProductImage } from "@/components/shop/ProductImage";
 
@@ -816,7 +816,7 @@ function WishlistTab({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {items.map((p) => (
           <div key={p.id} className="rounded-2xl border border-border bg-card shadow-soft overflow-hidden">
-            <Link to="/product/$productId" params={{ productId: p.id }} className="block">
+            <Link to="/product/$slug" params={{ slug: productSlug(p.name) }} className="block">
               <div className="aspect-square bg-surface p-3">
                 <ProductImage
                   product={p}
@@ -827,7 +827,7 @@ function WishlistTab({
               </div>
             </Link>
             <div className="p-3">
-              <Link to="/product/$productId" params={{ productId: p.id }} className="line-clamp-2 text-xs font-semibold hover:text-primary">
+              <Link to="/product/$slug" params={{ slug: productSlug(p.name) }} className="line-clamp-2 text-xs font-semibold hover:text-primary">
                 {p.name}
               </Link>
               <p className="mt-1 text-sm font-bold text-primary">{formatTaka(p.price)}</p>
@@ -892,7 +892,7 @@ function CartTab({
       <div className="space-y-3">
         {cartItems.map((item) => (
           <div key={item.product.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-            <Link to="/product/$productId" params={{ productId: item.product.id }} className="shrink-0">
+            <Link to="/product/$slug" params={{ slug: productSlug(item.product.name) }} className="shrink-0">
               <div className="size-16 rounded-xl bg-surface p-2">
                 <ProductImage
                   product={item.product}
@@ -903,7 +903,7 @@ function CartTab({
               </div>
             </Link>
             <div className="min-w-0 flex-1">
-              <Link to="/product/$productId" params={{ productId: item.product.id }} className="line-clamp-1 text-sm font-semibold hover:text-primary">
+              <Link to="/product/$slug" params={{ slug: productSlug(item.product.name) }} className="line-clamp-1 text-sm font-semibold hover:text-primary">
                 {item.product.name}
               </Link>
               <p className="text-xs text-muted-foreground">পরিমাণ: {toBnNumber(item.qty)}</p>

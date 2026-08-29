@@ -6,7 +6,7 @@ import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { formatTaka, toBnNumber } from "@/lib/format";
-import { discountPercent, categoryName } from "@/data/catalog";
+import { discountPercent, categoryName, productSlug } from "@/data/catalog";
 import { useShop } from "@/lib/shop-store";
 import { cn } from "@/lib/utils";
 import { ProductImage } from "@/components/shop/ProductImage";
@@ -185,8 +185,8 @@ function ProductListPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1">
                           <Link
-                            to="/product/$productId"
-                            params={{ productId: p.id }}
+                            to="/product/$slug"
+                            params={{ slug: productSlug(p.name) }}
                             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary hover:text-foreground"
                           >
                             <Eye className="size-4" />
