@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import appCss from "../styles.css?url";
 import { ShopProvider } from "../lib/shop-store";
 import { AuthProvider } from "../lib/auth-store";
+import { StoreSettingsProvider } from "../lib/store-settings";
 import { AdminAuthProvider } from "../lib/admin/admin-auth";
 import { DataProvider } from "../lib/admin/admin-data";
 import { Header } from "../components/shop/Header";
@@ -111,12 +112,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "manifest", href: "/manifest.json" },
       { rel: "apple-touch-icon", href: "/localmart.png" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap",
-      },
     ],
   }),
   shellComponent: RootShell,
@@ -152,24 +147,26 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AdminAuthProvider>
-          <DataProvider>
-            <ShopProvider>
-              <div className="min-h-screen">
-                {!isAdmin && <Header />}
-                <main>
-                  <Outlet />
-                </main>
-                {!isAdmin && <Footer />}
-                {!isAdmin && <MobileBottomNav />}
-                {!isAdmin && <PwaInstallBanner />}
-              </div>
-              <Toaster position="top-center" richColors />
-            </ShopProvider>
-          </DataProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
+      <StoreSettingsProvider>
+        <AuthProvider>
+          <AdminAuthProvider>
+            <DataProvider>
+              <ShopProvider>
+                <div className="min-h-screen">
+                  {!isAdmin && <Header />}
+                  <main>
+                    <Outlet />
+                  </main>
+                  {!isAdmin && <Footer />}
+                  {!isAdmin && <MobileBottomNav />}
+                  {!isAdmin && <PwaInstallBanner />}
+                </div>
+                <Toaster position="top-center" richColors />
+              </ShopProvider>
+            </DataProvider>
+          </AdminAuthProvider>
+        </AuthProvider>
+      </StoreSettingsProvider>
     </QueryClientProvider>
   );
 }

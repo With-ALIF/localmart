@@ -19,15 +19,13 @@ function toSlug(text: string): string {
 }
 
 function CategoriesContent() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { categories, products, addCategory, updateCategory, deleteCategory } = useData();
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editSlug, setEditSlug] = useState<string | null>(null);
   const [deleteSlug, setDeleteSlug] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", icon: "🛒", description: "" });
-
-  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const filtered = useMemo(() => {
     if (!search) return categories;
@@ -36,6 +34,9 @@ function CategoriesContent() {
       (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
     );
   }, [categories, search]);
+
+  if (!hydrated) return null;
+  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const productCount = (slug: string) => products.filter((p) => p.category === slug).length;
 

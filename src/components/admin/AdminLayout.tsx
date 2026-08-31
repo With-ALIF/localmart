@@ -19,6 +19,7 @@ import {
   ChevronDown,
   Sprout,
   Receipt,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminAuth } from "@/lib/admin/admin-auth";
@@ -37,6 +38,7 @@ const sidebarLinks: readonly SidebarLink[] = [
   { to: "/admin/categories", label: "Categories", icon: FolderTree },
   { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { to: "/admin/pos", label: "Direct Sale / POS", icon: Receipt },
+  { to: "/admin/history", label: "History", icon: Clock },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/offers", label: "Offers", icon: Tag, placeholder: true },
   { to: "/admin/reviews", label: "Reviews", icon: Star, placeholder: true },
@@ -145,11 +147,6 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
-            <button className="relative flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-secondary">
-              <Bell className="size-[18px]" />
-              <span className="absolute right-1.5 top-1.5 size-2 rounded-full bg-destructive" />
-            </button>
-
             <div className="relative">
               <button
                 onClick={() => setProfileOpen(!profileOpen)}
@@ -190,13 +187,13 @@ export function AdminLayout({ children }: { children?: ReactNode }) {
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg lg:hidden print-hide">
         <div className="grid grid-cols-6 items-center py-1.5">
           {[
             { to: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
             { to: "/admin/products", label: "Products", icon: Package },
-            { to: "/admin/orders", label: "Orders", icon: ShoppingCart },
             { to: "/admin/pos", label: "POS", icon: Receipt },
+            { to: "/admin/history", label: "History", icon: Clock },
             { to: "/admin/customers", label: "Customers", icon: Users },
             { to: "/admin/settings", label: "Settings", icon: Settings },
           ].map((l) => (

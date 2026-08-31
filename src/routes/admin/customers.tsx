@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Users,
   Search,
@@ -15,12 +15,14 @@ import {
   Package,
   ArrowUpRight,
   X,
+  ChevronLeft,
 } from "lucide-react";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
 import { DataProvider, useData, type Order } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { formatTaka, toBnNumber } from "@/lib/format";
+import { formatTaka, toBnNumber, formatOrderDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-700",
@@ -43,6 +45,7 @@ type Customer = {
   phone: string;
   email: string;
   address: string;
+  avatar: string;
   orders: Order[];
   totalSpent: number;
   orderCount: number;
@@ -50,12 +53,23 @@ type Customer = {
   firstOrderDate: string;
 };
 
-function extractCustomers(orders: Order[]): Customer[] {
+function findAvatar(name: string, phone: string, email: string, avatarMap: Record<string, string>): string {
+  if (email && avatarMap[email.toLowerCase()]) return avatarMap[email.toLowerCase()];
+  if (phone && avatarMap[phone]) return avatarMap[phone];
+  if (name && avatarMap[name.toLowerCase()]) return avatarMap[name.toLowerCase()];
+  for (const [mapKey, val] of Object.entries(avatarMap)) {
+    if (name && (name.toLowerCase().includes(mapKey) || mapKey.includes(name.toLowerCase()))) return val;
+  }
+  return "";
+}
+
+function extractCustomers(orders: Order[], avatarMap: Record<string, string>): Customer[] {
   const map = new Map<string, Customer>();
 
   for (const order of orders) {
     const key = order.phone || order.customer;
     const existing = map.get(key);
+    const avatar = findAvatar(order.customer, order.phone, order.email, avatarMap);
 
     if (existing) {
       existing.orders.push(order);
@@ -64,13 +78,14 @@ function extractCustomers(orders: Order[]): Customer[] {
       if (order.date > existing.lastOrderDate) existing.lastOrderDate = order.date;
       if (order.date < existing.firstOrderDate) existing.firstOrderDate = order.date;
       if (!existing.email && order.email) existing.email = order.email;
-      if (!existing.address && order.address) existing.address = order.address;
+      if (!existing.avatar && avatar) existing.avatar = avatar;
     } else {
       map.set(key, {
         name: order.customer,
         phone: order.phone,
         email: order.email || "",
         address: order.address,
+        avatar,
         orders: [order],
         totalSpent: order.total,
         orderCount: 1,
@@ -84,15 +99,33 @@ function extractCustomers(orders: Order[]): Customer[] {
 }
 
 function CustomersContent() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { orders } = useData();
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [avatarMap, setAvatarMap] = useState<Record<string, string>>({});
 
-  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase
+      .from("profiles")
+      .select("name, email, phone, avatar_url")
+      .then(({ data }) => {
+        if (!data) return;
+        const map: Record<string, string> = {};
+        for (const p of data) {
+          if (p.avatar_url) {
+            if (p.email) map[p.email.toLowerCase()] = p.avatar_url;
+            if (p.phone) map[p.phone] = p.avatar_url;
+            if (p.name) map[p.name.toLowerCase()] = p.avatar_url;
+          }
+        }
+        setAvatarMap(map);
+      });
+  }, []);
 
-  const customers = useMemo(() => extractCustomers(orders), [orders]);
+  const customers = useMemo(() => extractCustomers(orders, avatarMap), [orders, avatarMap]);
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return customers.filter(
@@ -102,6 +135,9 @@ function CustomersContent() {
         c.email.toLowerCase().includes(q),
     );
   }, [customers, search]);
+
+  if (!hydrated) return null;
+  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const totalSpent = customers.reduce((sum, c) => sum + c.totalSpent, 0);
   const avgOrderValue = orders.length > 0 ? totalSpent / orders.length : 0;
@@ -176,8 +212,12 @@ function CustomersContent() {
                     <tr key={i} className="border-b border-border/50 transition hover:bg-muted/50">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                            {c.name.slice(0, 2)}
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary overflow-hidden">
+                            {c.avatar ? (
+                              <img src={c.avatar} alt="" className="size-9 rounded-full object-cover" />
+                            ) : (
+                              c.name.slice(0, 2)
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="truncate font-semibold">{c.name}</p>
@@ -243,19 +283,28 @@ function CustomerDetailModal({
   const deliveredCount = customer.orders.filter((o) => o.status === "delivered").length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
+      <div className="h-full w-full overflow-y-auto rounded-none border-0 bg-card shadow-2xl sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl sm:border sm:border-border">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-6 py-4">
-          <h2 className="font-display text-lg font-extrabold">কাস্টমার বিবরণ</h2>
-          <button onClick={onClose} className="rounded-lg p-1 transition hover:bg-secondary">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="rounded-lg p-1 transition hover:bg-secondary sm:hidden">
+              <ChevronLeft className="size-5" />
+            </button>
+            <h2 className="font-display text-lg font-extrabold">কাস্টমার বিবরণ</h2>
+          </div>
+          <button onClick={onClose} className="hidden rounded-lg p-1 transition hover:bg-secondary sm:block">
             <X className="size-5" />
           </button>
         </div>
 
-        <div className="space-y-6 p-6">
+        <div className="space-y-6 p-6 pb-24 sm:pb-6">
           <div className="flex items-start gap-4">
-            <div className="flex size-16 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
-              {customer.name.slice(0, 2)}
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary overflow-hidden">
+              {customer.avatar ? (
+                <img src={customer.avatar} alt="" className="size-16 rounded-full object-cover" />
+              ) : (
+                customer.name.slice(0, 2)
+              )}
             </div>
             <div className="flex-1">
               <h3 className="text-lg font-bold">{customer.name}</h3>
@@ -332,7 +381,7 @@ function CustomerDetailModal({
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {order.date} · {order.items.length}টি পণ্য
+                          {formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য
                         </p>
                       </div>
                       <p className="text-sm font-bold text-primary">{formatTaka(order.total)}</p>

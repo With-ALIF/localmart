@@ -1,10 +1,10 @@
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Search, ChevronDown, Eye, Clock, Package, Truck, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Search, ChevronDown, Eye, Clock, Package, Truck, CheckCircle, XCircle, AlertCircle, ChevronLeft } from "lucide-react";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
 import { DataProvider, useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
-import { formatTaka, toBnNumber } from "@/lib/format";
+import { formatTaka, toBnNumber, formatOrderDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Order, StatusHistoryEntry } from "@/lib/admin/admin-data";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -52,7 +52,7 @@ function formatDateTime(iso: string) {
 }
 
 function OrdersContent() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { orders, updateOrderStatus, getOrderStatusHistory, getValidNextStatuses } = useData();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -63,7 +63,27 @@ function OrdersContent() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   const loadHistory = useCallback(async (orderId: string) => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      const localOrder = orders.find((o) => o.id === orderId);
+      if (localOrder && (localOrder.bkashTrxId || localOrder.nagadTrxId)) {
+        const trx = localOrder.bkashTrxId || localOrder.nagadTrxId;
+        const sender = localOrder.bkashSender || localOrder.nagadSender;
+        const pName = localOrder.payment;
+        setViewHistory([
+          {
+            id: "local-1",
+            order_id: localOrder.id,
+            status: localOrder.status,
+            note: `Order placed. ${pName} TrxID: ${trx}${sender ? ` (Sender: ${sender})` : ""}`,
+            created_by: null,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        setViewHistory([]);
+      }
+      return;
+    }
     const dbOrder = orders.find((o) => o.id === orderId);
     if (!dbOrder) return;
 
@@ -87,8 +107,6 @@ function OrdersContent() {
       setStatusNote("");
     }
   }, [viewOrder, loadHistory, getValidNextStatuses]);
-
-  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const filtered = useMemo(() => {
     let list = [...orders].sort((a, b) => b.date.localeCompare(a.date));
@@ -118,6 +136,9 @@ function OrdersContent() {
     });
     return counts;
   }, [orders]);
+
+  if (!hydrated) return null;
+  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const handleStatusUpdate = async () => {
     if (!viewOrder || !newStatus) return;
@@ -226,7 +247,7 @@ function OrdersContent() {
                       <p className="font-semibold">{o.customer}</p>
                       <p className="text-[11px] text-muted-foreground">{o.phone}</p>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{o.date}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatOrderDateTime(o.date, o.time)}</td>
                     <td className="px-4 py-3">{toBnNumber(o.items.length)}</td>
                     <td className="px-4 py-3 font-semibold">{formatTaka(o.total)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{o.payment}</td>
@@ -251,13 +272,21 @@ function OrdersContent() {
         )}
 
         {viewOrder && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 pt-[5vh] sm:items-center sm:pt-4">
-            <div className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-lg sm:max-h-[90vh] sm:overflow-y-auto">
-              <div className="flex items-center justify-between">
-                <h3 className="font-display text-lg font-bold">{viewOrder.id}</h3>
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 sm:p-4 sm:pt-4 sm:items-center">
+            <div className="w-full max-w-lg rounded-none bg-card p-6 pb-24 shadow-lg min-h-screen sm:min-h-0 sm:rounded-2xl sm:max-h-[90vh] sm:overflow-y-auto sm:pb-6">
+              <div className="sticky top-0 -mx-6 -mt-6 mb-4 flex items-center justify-between border-b border-border bg-card px-6 py-4 sm:static sm:mx-0 sm:mt-0 sm:border-0 sm:px-0 sm:py-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setViewOrder(null)}
+                    className="rounded-lg p-1 hover:bg-secondary sm:hidden"
+                  >
+                    <ChevronLeft className="size-5" />
+                  </button>
+                  <h3 className="font-display text-lg font-bold">{viewOrder.id}</h3>
+                </div>
                 <button
                   onClick={() => setViewOrder(null)}
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="hidden text-sm text-muted-foreground hover:text-foreground sm:block"
                 >
                   ✕
                 </button>
@@ -280,27 +309,58 @@ function OrdersContent() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Date</span>
-                  <span className="font-semibold">{viewOrder.date}</span>
+                  <span className="font-semibold">{formatOrderDateTime(viewOrder.date, viewOrder.time)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Payment</span>
                   <span className="font-semibold">{viewOrder.payment}</span>
                 </div>
-                {viewOrder.payment === "bKash" && viewHistory.length > 0 && (() => {
-                  const note = viewHistory[0]?.note || "";
-                  const trxMatch = note.match(/TrxID:\s*(\S+)/);
-                  const senderMatch = note.match(/Sender:\s*(\S+)/);
-                  if (trxMatch) {
+                {(viewOrder.payment === "bKash" || viewOrder.payment?.toLowerCase() === "bkash") && (() => {
+                  const firstNote = viewHistory.find((h) => h.note?.includes("TrxID"))?.note || viewHistory[0]?.note || "";
+                  const trxMatch = firstNote.match(/TrxID:\s*([^\s)]+)/) || (viewOrder.bkashTrxId ? [null, viewOrder.bkashTrxId] : null);
+                  const senderMatch = firstNote.match(/Sender:\s*([^\s)]+)/) || (viewOrder.bkashSender ? [null, viewOrder.bkashSender] : null);
+                  const trx = trxMatch ? trxMatch[1] : viewOrder.bkashTrxId;
+                  const sender = senderMatch ? senderMatch[1] : viewOrder.bkashSender;
+                  if (trx || sender) {
                     return (
                       <>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">bKash TrxID</span>
-                          <span className="font-semibold text-[#E2136E]">{trxMatch[1]}</span>
-                        </div>
-                        {senderMatch && (
+                        {trx && (
                           <div className="flex justify-between">
-                            <span className="text-muted-foreground">Sender</span>
-                            <span className="font-semibold">{senderMatch[1]}</span>
+                            <span className="text-muted-foreground">bKash TrxID</span>
+                            <span className="font-semibold text-[#E2136E]">{trx}</span>
+                          </div>
+                        )}
+                        {sender && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sender Number</span>
+                            <span className="font-semibold">{sender}</span>
+                          </div>
+                        )}
+                      </>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {(viewOrder.payment === "Nagad" || viewOrder.payment?.toLowerCase() === "nagad") && (() => {
+                  const firstNote = viewHistory.find((h) => h.note?.includes("TrxID"))?.note || viewHistory[0]?.note || "";
+                  const trxMatch = firstNote.match(/TrxID:\s*([^\s)]+)/) || (viewOrder.nagadTrxId ? [null, viewOrder.nagadTrxId] : null);
+                  const senderMatch = firstNote.match(/Sender:\s*([^\s)]+)/) || (viewOrder.nagadSender ? [null, viewOrder.nagadSender] : null);
+                  const trx = trxMatch ? trxMatch[1] : viewOrder.nagadTrxId;
+                  const sender = senderMatch ? senderMatch[1] : viewOrder.nagadSender;
+                  if (trx || sender) {
+                    return (
+                      <>
+                        {trx && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Nagad TrxID</span>
+                            <span className="font-semibold text-[#F62B2B]">{trx}</span>
+                          </div>
+                        )}
+                        {sender && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Sender Number</span>
+                            <span className="font-semibold">{sender}</span>
                           </div>
                         )}
                       </>

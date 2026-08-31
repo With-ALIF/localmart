@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { generateOrderNumber } from "@/lib/id-generator";
 import {
   type POSCartProduct,
   type POSSale,
@@ -149,12 +150,7 @@ export function usePosStore() {
       const now = new Date();
 
       if (isSupabaseConfigured) {
-        const { count } = await supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("order_source", "pos");
-
-        const saleNumber = `POS-${String((count || 0) + 1).padStart(6, "0")}`;
+        const saleNumber = await generateOrderNumber("pos");
 
         const { data: orderData, error: orderError } = await supabase
           .from("orders")
@@ -231,7 +227,7 @@ export function usePosStore() {
         savePOSCart([]);
         return sale;
       } else {
-        const saleNumber = `POS-${String(sales.length + 1).padStart(6, "0")}`;
+        const saleNumber = await generateOrderNumber("pos");
 
         const sale: POSSale = {
           id: `pos-sale-${Date.now()}`,

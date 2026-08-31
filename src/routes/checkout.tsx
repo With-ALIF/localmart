@@ -7,6 +7,7 @@ import { formatTaka, toBnNumber } from "@/lib/format";
 import { discountPercent } from "@/data/catalog";
 import { toast } from "sonner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { generateOrderNumber } from "@/lib/id-generator";
 import { ProductImage } from "@/components/shop/ProductImage";
 
 type SavedAddress = {
@@ -33,6 +34,7 @@ function CheckoutPage() {
   const [bkashTrxId, setBkashTrxId] = useState("");
   const [bkashSenderPhone, setBkashSenderPhone] = useState("");
   const [nagadTrxId, setNagadTrxId] = useState("");
+  const [nagadSenderPhone, setNagadSenderPhone] = useState("");
   const [copiedNumber, setCopiedNumber] = useState(false);
 
   const BKASH_MERCHANT = "01711144376";
@@ -117,8 +119,7 @@ function CheckoutPage() {
       return;
     }
 
-    const timestamp = Date.now();
-    const orderNumber = "ORD-" + timestamp;
+    const orderNumber = await generateOrderNumber("online");
 
     if (isSupabaseConfigured) {
       const userId = user && "id" in user ? (user as { id: string }).id : null;
@@ -176,9 +177,9 @@ function CheckoutPage() {
         order_id: orderData.id,
         status: "pending",
         note: payment === "bkash"
-          ? `Order placed. bKash TrxID: ${bkashTrxId.trim()}`
+          ? `Order placed. bKash TrxID: ${bkashTrxId.trim()}${bkashSenderPhone ? ` (Sender: ${bkashSenderPhone.trim()})` : ""}`
           : payment === "nagad"
-          ? `Order placed. Nagad TrxID: ${nagadTrxId.trim()}`
+          ? `Order placed. Nagad TrxID: ${nagadTrxId.trim()}${nagadSenderPhone ? ` (Sender: ${nagadSenderPhone.trim()})` : ""}`
           : "Order placed",
         created_by: userId,
       });
@@ -199,8 +200,11 @@ function CheckoutPage() {
         payment: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
         bkashTrxId: payment === "bkash" ? bkashTrxId.trim() : "",
         bkashSender: payment === "bkash" ? bkashSenderPhone.trim() : "",
+        nagadTrxId: payment === "nagad" ? nagadTrxId.trim() : "",
+        nagadSender: payment === "nagad" ? nagadSenderPhone.trim() : "",
         status: "pending" as const,
         date: new Date().toISOString().split("T")[0],
+        time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
       };
 
       try {
@@ -464,19 +468,19 @@ function CheckoutPage() {
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
                   <p className="font-bangla">
-                    <span>*247#</span> ডায়াল করে আপনার bKash মোবাইল মেনুতে যান অথবা bKash অ্যাপ খুলুন।
+                    <span>*247#</span> ডায়াল করে আপনার bKash মোবাইল মেনুতে যান অথবা bKash অ্যাপ খুলুন
                   </p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন।</p>
+                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
                   <p className="sm:w-[90%] font-bangla">
-                    উপরের নম্বরে টাকা পাঠান।{" "}
+                    নিচের নম্বরে টাকা পাঠান{" "}
                     <span className="ml-1 font-semibold text-yellow-300">{BKASH_MERCHANT}</span>
                     <button
                       type="button"
@@ -503,17 +507,17 @@ function CheckoutPage() {
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">নিশ্চিত করে এখন আপনার bKash PIN লিখুন।</p>
+                  <p className="font-bangla">নিশ্চিত করে এখন আপনার bKash PIN লিখুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</p>
+                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে ভেরিফাই চাপুন।</p>
+                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে অর্ডার কনফার্ম করুন</p>
                 </li>
               </ul>
             </div>
@@ -535,23 +539,36 @@ function CheckoutPage() {
                 />
               </div>
 
+              <div className="mt-3 text-center">
+                <h2 className="mb-3 font-bangla font-semibold text-white">আপনার Nagad নম্বর (ঐচ্ছিক)</h2>
+                <input
+                  type="tel"
+                  value={nagadSenderPhone}
+                  onChange={(e) => setNagadSenderPhone(e.target.value)}
+                  placeholder="01XXXXXXXXX"
+                  maxLength={12}
+                  autoComplete="off"
+                  className="w-full appearance-none rounded-[10px] bg-white px-5 py-3.5 text-[15px] text-gray-900 placeholder-gray-400 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#F62B2B] sm:bg-[#fbfcff]"
+                />
+              </div>
+
               <ul className="mt-5 text-sm text-white">
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
                   <p className="font-bangla">
-                    <span>*167#</span> ডায়াল করে আপনার NAGAD মোবাইল মেনুতে যান অথবা NAGAD অ্যাপে যান।
+                    <span>*167#</span> ডায়াল করে আপনার NAGAD মোবাইল মেনুতে যান অথবা NAGAD অ্যাপে যান
                   </p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন।</p>
+                  <p className="font-bangla">সেন্ড মানি -এ ক্লিক করুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
                   <p className="sm:w-[90%] font-bangla">
-                    উপরের নম্বরে টাকা পাঠান।{" "}
+                    নিচের নম্বরে টাকা পাঠান{" "}
                     <span className="ml-1 font-semibold text-yellow-300">{NAGAD_MERCHANT}</span>
                     <button
                       type="button"
@@ -578,17 +595,17 @@ function CheckoutPage() {
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">নিশ্চিত করে এখন আপনার NAGAD মোবাইল মেনু PIN লিখুন।</p>
+                  <p className="font-bangla">নিশ্চিত করে এখন আপনার NAGAD মোবাইল মেনু PIN লিখুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন।</p>
+                  <p className="font-bangla">টাকা পাঠান এবং ট্রানজ্যাকশন আইডি কপি করুন</p>
                 </li>
                 <hr className="my-3 border-white/20" />
                 <li className="flex">
                   <div><span className="mb-0.5 mr-2 inline-block h-1.5 w-1.5 rounded-full bg-white"></span></div>
-                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে ভেরিফাই চাপুন।</p>
+                  <p className="font-bangla">ট্রানজ্যাকশন আইডি লিখে অর্ডার কনফার্ম করুন</p>
                 </li>
               </ul>
             </div>

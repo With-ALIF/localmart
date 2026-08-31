@@ -10,8 +10,13 @@ import {
   LayoutGrid,
   Package,
   Tag,
+  ChevronDown,
+  PackageCheck,
+  Settings,
+  X,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useStoreSettings } from "@/lib/store-settings";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
 import { toBnNumber, formatTaka } from "@/lib/format";
@@ -38,11 +43,14 @@ function CountBadge({ count }: { count: number }) {
 export function Header() {
   const { cartCount, wishlistCount, products, categories } = useShop();
   const { user, logout, hydrated } = useAuth();
+  const settings = useStoreSettings();
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => {
     if (!term.trim() || term.trim().length < 2) return [];
@@ -56,6 +64,9 @@ export function Header() {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setFocused(false);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -63,8 +74,7 @@ export function Header() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/products", search: { q: term.trim() || undefined } });
-    setOpen(false);
+    navigate({ to: "/products", search: { q: term.trim() || undefined, category: undefined, sort: undefined, minPrice: undefined, maxPrice: undefined, minRating: undefined, inStock: undefined, page: undefined, view: undefined } });
     setFocused(false);
   };
 
@@ -82,7 +92,7 @@ export function Header() {
         <Link to="/" className="flex shrink-0 items-center gap-2">
           <img
             src="/localmart.png"
-            alt="Patgram Online Shop"
+            alt={settings.storeName}
             className="h-9 w-auto object-contain sm:h-10"
           />
         </Link>
@@ -179,13 +189,62 @@ export function Header() {
             <CountBadge count={cartCount} />
           </Link>
           {hydrated && user ? (
-            <Link
-              to="/account"
-              className="hidden items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground shadow-card transition hover:opacity-90 md:inline-flex"
-            >
-              <User className="size-3.5" />
-              অ্যাকাউন্ট
-            </Link>
+            <div ref={userMenuRef} className="relative hidden md:block">
+              <button
+                onClick={() => setUserMenuOpen(!userMenuOpen)}
+                className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-card transition hover:opacity-90"
+              >
+                {user.avatar ? (
+                  <img src={user.avatar} alt="" className="size-6 rounded-full object-cover ring-2 ring-white/30" />
+                ) : (
+                  <span className="flex size-6 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">
+                    {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                  </span>
+                )}
+                <span className="hidden lg:inline">{user.name || "অ্যাকাউন্ট"}</span>
+                <ChevronDown className="size-3" />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-card py-1.5 shadow-lg">
+                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                    {user.avatar ? (
+                      <img src={user.avatar} alt="" className="size-10 rounded-full object-cover" />
+                    ) : (
+                      <span className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                        {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold">{user.name || "User"}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/account"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold transition hover:bg-secondary"
+                  >
+                    <Settings className="size-3.5" />
+                    অ্যাকাউন্ট
+                  </Link>
+                  <Link
+                    to="/orders"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-semibold transition hover:bg-secondary"
+                  >
+                    <PackageCheck className="size-3.5" />
+                    আমার অর্ডার
+                  </Link>
+                  <button
+                    onClick={() => { logout(); setUserMenuOpen(false); navigate({ to: "/" }); }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                  >
+                    <LogOut className="size-3.5" />
+                    লগআউট
+                  </button>
+                </div>
+              )}
+            </div>
           ) : hydrated ? (
             <Link
               to="/login"

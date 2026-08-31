@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { ProductImage } from "@/components/shop/ProductImage";
 
 function ProductListPage() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { deleteProduct } = useData();
   const { products, categories } = useShop();
   const [search, setSearch] = useState("");
@@ -38,6 +38,7 @@ function ProductListPage() {
     return list;
   }, [products, search, catFilter, stockFilter]);
 
+  if (!hydrated) return null;
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const handleDelete = (id: string) => {

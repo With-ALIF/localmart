@@ -13,7 +13,7 @@ yarn.lock
 pnpm-lock.yaml
 bun.lockb
 bun.lock
-.lovable
+.lovable/
 .bun
 .env
 .env.local
@@ -52,4 +52,3 @@ dist-ssr
 *.sw?
 .vercel
 .tanstack
-.lovable

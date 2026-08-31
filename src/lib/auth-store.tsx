@@ -14,6 +14,8 @@ type User = {
   name: string;
   email: string;
   phone: string;
+  avatar: string;
+  createdAt: string;
 };
 
 type AuthContextValue = {
@@ -22,17 +24,20 @@ type AuthContextValue = {
   hydrated: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (name: string, email: string, phone: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function mapUser(data: { id: string; email?: string; user_metadata?: Record<string, any> }, profile?: { name?: string; phone?: string } | null): User {
+function mapUser(data: { id: string; email?: string; created_at?: string; user_metadata?: Record<string, any> }, profile?: { name?: string; phone?: string; avatar_url?: string } | null): User {
   return {
     id: data.id,
-    name: profile?.name ?? data.user_metadata?.name ?? "",
+    name: profile?.name ?? data.user_metadata?.full_name ?? data.user_metadata?.name ?? "",
     email: data.email ?? "",
     phone: profile?.phone ?? data.user_metadata?.phone ?? "",
+    avatar: profile?.avatar_url ?? data.user_metadata?.avatar_url ?? "",
+    createdAt: data.created_at ?? "",
   };
 }
 
@@ -51,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name, phone")
+          .select("name, phone, avatar_url")
           .eq("id", session.user.id)
           .maybeSingle();
         const u = mapUser(session.user, profile);
@@ -61,14 +66,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHydrated(true);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name, phone")
+          .select("name, phone, avatar_url")
           .eq("id", session.user.id)
           .maybeSingle();
-        const u = mapUser(session.user, profile);
+
+        const meta = session.user.user_metadata || {};
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          await supabase.from("profiles").upsert({
+            id: session.user.id,
+            name: meta.full_name || meta.name || profile?.name || "",
+            phone: meta.phone || profile?.phone || "",
+            email: session.user.email || "",
+            avatar_url: meta.picture || meta.avatar_url || profile?.avatar_url || "",
+          }, { onConflict: "id" });
+        }
+
+        const u = mapUser(session.user, { ...profile, avatar_url: meta.picture || meta.avatar_url || profile?.avatar_url || "" });
         setUser(u);
         setIsAuthenticated(true);
       } else {
@@ -102,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("name, phone")
+      .select("name, phone, avatar_url")
       .eq("id", data.user.id)
       .maybeSingle();
     const u = mapUser(data.user, profile);
@@ -145,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name,
           phone,
           email,
+          avatar_url: "",
         });
 
         const u = mapUser(data.session.user, { name, phone });
@@ -155,6 +173,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  const loginWithGoogle = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
+
+    const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: siteUrl,
+      },
+    });
+
+    if (error) {
+      console.error("Google login error:", error.message);
+      return { success: false, error: error.message || "Google লগইন ব্যর্থ হয়েছে।" };
+    }
+    return { success: true };
+  }, []);
 
   const logout = useCallback(() => {
     if (isSupabaseConfigured) {
@@ -171,9 +208,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hydrated,
       login,
       register,
+      loginWithGoogle,
       logout,
     }),
-    [isAuthenticated, user, hydrated, login, register, logout],
+    [isAuthenticated, user, hydrated, login, register, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

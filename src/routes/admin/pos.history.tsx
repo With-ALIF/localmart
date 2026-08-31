@@ -6,7 +6,7 @@ import { DataProvider } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { usePosStore } from "@/lib/admin/pos-store";
 import { type POSSale, paymentMethodLabels } from "@/lib/admin/pos-types";
-import { toBnNumber, formatTaka } from "@/lib/format";
+import { toBnNumber, formatTaka, formatOrderDateTime } from "@/lib/format";
 
 export const Route = createFileRoute("/admin/pos/history")({ component: POSHistoryPage });
 
@@ -115,7 +115,7 @@ function POSHistoryContent() {
                   <td className="px-4 py-2.5 font-semibold">{sale.saleNumber}</td>
                   <td className="px-4 py-2.5">{sale.customerName}</td>
                   <td className="px-4 py-2.5">{sale.customerPhone || "—"}</td>
-                  <td className="px-4 py-2.5">{sale.date}</td>
+                  <td className="px-4 py-2.5">{formatOrderDateTime(sale.date, sale.time)}</td>
                   <td className="px-4 py-2.5 font-semibold">{formatTaka(sale.total)}</td>
                   <td className="px-4 py-2.5">{paymentMethodLabels[sale.paymentMethod]}</td>
                   <td className="px-4 py-2.5 text-green-600 font-semibold">{formatTaka(sale.paidAmount)}</td>
@@ -150,8 +150,8 @@ function POSHistoryContent() {
 
       {/* Receipt Modal */}
       {showReceipt && selectedSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print-history-overlay">
+          <div className="print-history w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-bold">Receipt</h3>
               <button onClick={() => setShowReceipt(false)} className="text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
@@ -162,8 +162,7 @@ function POSHistoryContent() {
             </div>
             <div className="space-y-1.5 text-xs text-gray-700">
               <div className="flex justify-between"><span>Sale ID:</span><span className="font-bold">{selectedSale.saleNumber}</span></div>
-              <div className="flex justify-between"><span>Date:</span><span>{selectedSale.date}</span></div>
-              <div className="flex justify-between"><span>Time:</span><span>{selectedSale.time}</span></div>
+              <div className="flex justify-between"><span>Date & Time:</span><span>{formatOrderDateTime(selectedSale.date, selectedSale.time)}</span></div>
               <div className="flex justify-between"><span>Customer:</span><span>{selectedSale.customerName}</span></div>
               {selectedSale.customerPhone && <div className="flex justify-between"><span>Phone:</span><span>{selectedSale.customerPhone}</span></div>}
               <div className="my-2 border-t border-dashed border-gray-300" />
@@ -185,7 +184,7 @@ function POSHistoryContent() {
             <div className="mt-4 border-t border-dashed border-gray-300 pt-3 text-center text-xs text-gray-500">
               <p className="font-semibold">ধন্যবাদ, আবার আসবেন।</p>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex gap-2 print-hide">
               <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-semibold hover:bg-gray-50">
                 <Receipt className="size-3.5" /> Print
               </button>

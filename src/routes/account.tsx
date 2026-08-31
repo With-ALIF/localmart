@@ -6,8 +6,6 @@ import {
   Heart,
   ShoppingCart,
   MapPin,
-  Bell,
-  Settings,
   LogOut,
   Edit3,
   Trash2,
@@ -26,15 +24,10 @@ import {
   Calendar,
   Save,
   X,
-  Shield,
-  Globe,
-  Lock,
-  FileText,
-  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { useShop } from "@/lib/shop-store";
-import { formatTaka, toBnNumber } from "@/lib/format";
+import { formatTaka, toBnNumber, formatOrderDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { productSlug, type Product } from "@/data/catalog";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
@@ -46,9 +39,7 @@ type Tab =
   | "orders"
   | "wishlist"
   | "cart"
-  | "addresses"
-  | "notifications"
-  | "settings";
+  | "addresses";
 
 type Order = {
   id: string;
@@ -61,6 +52,7 @@ type Order = {
   payment: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   date: string;
+  time: string;
 };
 
 type Address = {
@@ -100,8 +92,6 @@ const sidebarItems: { tab: Tab; label: string; icon: typeof User }[] = [
   { tab: "wishlist", label: "Wishlist", icon: Heart },
   { tab: "cart", label: "আমার Cart", icon: ShoppingCart },
   { tab: "addresses", label: "ঠিকানা", icon: MapPin },
-  { tab: "notifications", label: "নোটিফিকেশন", icon: Bell },
-  { tab: "settings", label: "সেটিংস", icon: Settings },
 ];
 
 function AccountPage() {
@@ -172,6 +162,7 @@ function AccountPage() {
               payment: o.payment_method,
               status: o.status as Order["status"],
               date: o.created_at?.slice(0, 10) || "",
+              time: o.created_at ? new Date(o.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
             });
           }
           setAllOrders(orders);
@@ -307,6 +298,17 @@ function AccountPage() {
     );
   }
 
+  const bnMonths = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
+  const memberSince = (() => {
+    if (!user.createdAt) return "";
+    try {
+      const d = new Date(user.createdAt);
+      return `${toBnNumber(d.getDate())} ${bnMonths[d.getMonth()]}, ${toBnNumber(d.getFullYear())}`;
+    } catch {
+      return "";
+    }
+  })();
+
   const initials = user.name
     .split(" ")
     .map((w) => w[0])
@@ -325,8 +327,12 @@ function AccountPage() {
       {/* Profile Header */}
       <div className="mb-6 rounded-2xl border border-border bg-card p-6 shadow-soft">
         <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <div className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
-            {initials}
+          <div className="flex size-20 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary overflow-hidden">
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="size-20 rounded-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="text-center sm:text-left">
             <h1 className="font-display text-2xl font-extrabold">{user.name}</h1>
@@ -334,7 +340,7 @@ function AccountPage() {
             {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
             <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground sm:justify-start">
               <Calendar className="size-3" />
-              মেম্বার সিন্স ২০২৬
+              মেম্বার সিন্স {memberSince}
             </p>
           </div>
           <button
@@ -450,8 +456,6 @@ function AccountPage() {
               setShowAddressForm={setShowAddressForm}
             />
           )}
-          {activeTab === "notifications" && <NotificationsTab />}
-          {activeTab === "settings" && <SettingsTab />}
         </main>
       </div>
     </div>
@@ -527,7 +531,7 @@ function OverviewTab({
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{order.date} · {order.items.length}টি পণ্য</p>
+                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য</p>
                   </div>
                   <p className="text-sm font-bold text-primary">{formatTaka(order.total)}</p>
                 </div>
@@ -726,7 +730,7 @@ function OrdersTab({
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{order.date} · {order.items.length}টি পণ্য</p>
+                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য</p>
                   </div>
                   <p className="text-sm font-bold text-primary">{formatTaka(order.total)}</p>
                   <ChevronRight className={cn("size-4 text-muted-foreground transition", expanded && "rotate-90")} />
@@ -1182,119 +1186,6 @@ function AddressesTab({
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-/* ── Notifications Tab ── */
-function NotificationsTab() {
-  const notifications = [
-    { id: "1", title: "অর্ডার কনফার্ম হয়েছে", desc: "আপনার অর্ডার #ORD-1024 কনফার্ম হয়েছে।", time: "২ ঘণ্টা আগে", read: false },
-    { id: "2", title: "ডেলিভারি সম্পন্ন", desc: "অর্ডার #ORD-1020 সফলভাবে ডেলিভারি হয়েছে।", time: "১ দিন আগে", read: true },
-    { id: "3", title: "নতুন অফার!", desc: "২০% ছাড়ে চাল কিনুন। সীমিত সময়ের জন্য।", time: "৩ দিন আগে", read: true },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <h2 className="font-display text-lg font-extrabold">নোটিফিকেশন</h2>
-      <div className="space-y-2">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className={cn(
-              "rounded-2xl border bg-card p-4 shadow-soft",
-              n.read ? "border-border" : "border-primary/30 bg-primary/5",
-            )}
-          >
-            <div className="flex items-start gap-3">
-              <div className={cn("mt-0.5 size-2 shrink-0 rounded-full", n.read ? "bg-muted" : "bg-primary")} />
-              <div>
-                <p className="text-sm font-bold">{n.title}</p>
-                <p className="text-xs text-muted-foreground">{n.desc}</p>
-                <p className="mt-1 text-[10px] text-muted-foreground">{n.time}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ── Settings Tab ── */
-function SettingsTab() {
-  return (
-    <div className="space-y-6">
-      <h2 className="font-display text-lg font-extrabold">সেটিংস</h2>
-
-      <div className="space-y-4">
-        <div className="rounded-2xl border border-border bg-card shadow-soft">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-bold text-muted-foreground">Account</p>
-          </div>
-          {[
-            { icon: User, label: "প্রোফাইল সম্পাদনা", desc: "নাম, ইমেইল, ফোন পরিবর্তন করুন" },
-            { icon: Lock, label: "পাসওয়ার্ড পরিবর্তন", desc: "আপনার পাসওয়ার্ড আপডেট করুন" },
-            { icon: Shield, label: "লগইন ও নিরাপত্তা", desc: "দুই-ফ্যাক্টর অথেনটিকেশন এবং সেশন ম্যানেজমেন্ট" },
-          ].map((item, i) => (
-            <button
-              key={i}
-              className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition hover:bg-muted/50 last:border-0"
-            >
-              <item.icon className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
-              </div>
-              <ChevronRight className="ml-auto size-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card shadow-soft">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-bold text-muted-foreground">Preferences</p>
-          </div>
-          {[
-            { icon: Bell, label: "নোটিফিকেশন", desc: "ইমেইল ও SMS নোটিফিকেশন সেটিংস" },
-            { icon: Globe, label: "ভাষা", desc: "বাংলা" },
-          ].map((item, i) => (
-            <button
-              key={i}
-              className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition hover:bg-muted/50 last:border-0"
-            >
-              <item.icon className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
-              </div>
-              <ChevronRight className="ml-auto size-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card shadow-soft">
-          <div className="border-b border-border px-4 py-3">
-            <p className="text-xs font-bold text-muted-foreground">Privacy</p>
-          </div>
-          {[
-            { icon: FileText, label: "প্রাইভেসি পলিসি", desc: "আমাদের প্রাইভেসি পলিসি পড়ুন" },
-            { icon: AlertCircle, label: "শর্তাবলী", desc: "ব্যবহারের শর্তাবলী" },
-          ].map((item, i) => (
-            <button
-              key={i}
-              className="flex w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition hover:bg-muted/50 last:border-0"
-            >
-              <item.icon className="size-4 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-semibold">{item.label}</p>
-                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
-              </div>
-              <ChevronRight className="ml-auto size-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

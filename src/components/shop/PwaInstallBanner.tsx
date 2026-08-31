@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
+import { useStoreSettings } from "@/lib/store-settings";
 
 export function PwaInstallBanner() {
+  const settings = useStoreSettings();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [show, setShow] = useState(false);
 
@@ -39,9 +41,9 @@ export function PwaInstallBanner() {
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 lg:bottom-auto lg:top-20 lg:left-auto lg:right-6 lg:w-80">
       <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-lg">
-        <img src="/localmart.png" alt="Patgram" className="size-10 shrink-0 rounded-xl object-contain" />
+        <img src="/localmart.png" alt={settings.storeName} className="size-10 shrink-0 rounded-xl object-contain" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold">Patgram Online Shop</p>
+          <p className="text-xs font-bold">{settings.storeName}</p>
           <p className="text-[10px] text-muted-foreground">হোমস্ক্রিনে ইনস্টল করুন</p>
         </div>
         <div className="flex items-center gap-1.5">

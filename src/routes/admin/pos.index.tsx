@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Search, ShoppingCart, X, Plus, Minus, Trash2, CreditCard, Banknote,
   Smartphone, Check, Receipt, BarChart3, TrendingUp, AlertCircle, Clock,
+  ChevronLeft,
 } from "lucide-react";
 import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
 import { DataProvider } from "@/lib/admin/admin-data";
@@ -10,9 +11,10 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { usePosStore } from "@/lib/admin/pos-store";
 import { type POSPaymentMethod, type POSPaymentStatus, paymentMethodLabels } from "@/lib/admin/pos-types";
 import { productImage } from "@/data/catalog";
-import { toBnNumber, formatTaka } from "@/lib/format";
+import { toBnNumber, formatTaka, formatOrderDateTime } from "@/lib/format";
 import { useShop } from "@/lib/shop-store";
 import { ProductImage } from "@/components/shop/ProductImage";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/pos/")({ component: AdminPOSPage });
 
@@ -102,28 +104,38 @@ function POSContent() {
   };
 
   // Complete sale handler
-  const handleCompleteSale = () => {
+  const [completing, setCompleting] = useState(false);
+  const handleCompleteSale = async () => {
     if (cart.length === 0) return;
     if (cart.some((item) => item.qty > item.stock)) return;
-    const sale = completeSale({
-      customerName,
-      customerPhone,
-      discountType,
-      discountValue,
-      paymentMethod,
-      paymentStatus,
-      paidAmount: paymentStatus === "due" ? 0 : paymentStatus === "partial" ? paidAmount : total,
-      adminName: adminUser?.name || "Admin",
-    });
-    setLastSale(sale);
-    setShowReceipt(true);
-    setMobileCartOpen(false);
-    setCustomerName("");
-    setCustomerPhone("");
-    setDiscountValue(0);
-    setPaidAmount(0);
-    setPaymentMethod("cash");
-    setPaymentStatus("paid");
+    setCompleting(true);
+    try {
+      const sale = await completeSale({
+        customerName,
+        customerPhone,
+        discountType,
+        discountValue,
+        paymentMethod,
+        paymentStatus,
+        paidAmount: paymentStatus === "due" ? 0 : paymentStatus === "partial" ? paidAmount : total,
+        adminName: adminUser?.name || "Admin",
+      });
+      setLastSale(sale);
+      setShowReceipt(true);
+      setMobileCartOpen(false);
+      setCustomerName("");
+      setCustomerPhone("");
+      setDiscountValue(0);
+      setPaidAmount(0);
+      setPaymentMethod("cash");
+      setPaymentStatus("paid");
+      toast.success("Sale completed!");
+    } catch (err: any) {
+      console.error("Complete sale error:", err);
+      toast.error(err?.message || "Sale complete করতে সমস্যা হয়েছে");
+    } finally {
+      setCompleting(false);
+    }
   };
 
   const handleNewSale = () => {
@@ -231,40 +243,42 @@ function POSContent() {
           </div>
         </button>
 
-        {/* Mobile Cart Overlay */}
+        {/* Mobile Cart Backdrop */}
         {mobileCartOpen && (
-          <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileCartOpen(false)} />
+          <div
+            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+            onClick={() => setMobileCartOpen(false)}
+          />
         )}
 
         {/* Right: POS Cart */}
         <div
           className={`
             flex flex-col rounded-2xl border border-border bg-card overflow-y-auto
-            fixed inset-y-0 right-0 z-50 w-[340px] max-w-[85vw] transition-transform duration-200 lg:static lg:translate-x-0 lg:rounded-2xl lg:w-auto lg:max-w-none lg:overflow-visible
-            ${mobileCartOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"}
+            fixed inset-0 z-50 transition-transform duration-300
+            lg:static lg:inset-auto lg:translate-x-0 lg:rounded-2xl lg:overflow-visible lg:transition-none
+            ${mobileCartOpen ? "translate-y-0" : "translate-y-full lg:translate-y-0"}
           `}
         >
           {/* Cart Header */}
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-4 py-3">
             <div className="flex items-center gap-2">
+              <button onClick={() => setMobileCartOpen(false)} className="rounded-lg p-1 hover:bg-secondary lg:hidden">
+                <ChevronLeft className="size-5" />
+              </button>
               <ShoppingCart className="size-4 text-primary" />
               <h3 className="text-sm font-bold">Current Sale</h3>
               <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                 {toBnNumber(cart.length)}টি
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={handleNewSale} className="text-xs font-semibold text-red-500 hover:text-red-700">
-                New Sale
-              </button>
-              <button onClick={() => setMobileCartOpen(false)} className="rounded-lg p-1 hover:bg-secondary lg:hidden">
-                <X className="size-4" />
-              </button>
-            </div>
+            <button onClick={handleNewSale} className="text-xs font-semibold text-red-500 hover:text-red-700">
+              New Sale
+            </button>
           </div>
 
           {/* Cart Items */}
-          <div className="overflow-y-auto px-4 py-2 space-y-2 lg:flex-1 lg:overflow-y-auto lg:max-h-none">
+          <div className="flex-1 min-h-[220px] max-h-[42vh] overflow-y-auto px-4 py-2 space-y-2">
             {cart.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 <ShoppingCart className="mx-auto mb-2 size-8 opacity-30" />
@@ -446,14 +460,14 @@ function POSContent() {
           </div>
 
           {/* Complete Sale Button */}
-          <div className="border-t border-border px-4 py-3">
+          <div className="border-t border-border px-4 py-3 pb-20 lg:pb-3">
             <button
               onClick={handleCompleteSale}
-              disabled={cart.length === 0 || cart.some((item) => item.qty > item.stock)}
+              disabled={cart.length === 0 || cart.some((item) => item.qty > item.stock) || completing}
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-green-600 text-sm font-bold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
             >
               <Check className="size-4" />
-              Complete Sale
+              {completing ? "Processing..." : "Complete Sale"}
             </button>
           </div>
         </div>
@@ -504,15 +518,14 @@ function POSContent() {
       {/* Receipt Modal */}
       {showReceipt && lastSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="print-receipt w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 text-center border-b border-dashed border-gray-300 pb-4">
               <h2 className="text-lg font-bold">PATGRAM ONLINE STORE</h2>
               <p className="text-xs text-gray-500">Direct Sale Receipt</p>
             </div>
             <div className="space-y-1.5 text-xs text-gray-700">
               <div className="flex justify-between"><span>Sale ID:</span><span className="font-bold">{lastSale.saleNumber}</span></div>
-              <div className="flex justify-between"><span>Date:</span><span>{lastSale.date}</span></div>
-              <div className="flex justify-between"><span>Time:</span><span>{lastSale.time}</span></div>
+              <div className="flex justify-between"><span>Date & Time:</span><span>{formatOrderDateTime(lastSale.date, lastSale.time)}</span></div>
               <div className="flex justify-between"><span>Customer:</span><span>{lastSale.customerName}</span></div>
               {lastSale.customerPhone && <div className="flex justify-between"><span>Phone:</span><span>{lastSale.customerPhone}</span></div>}
               <div className="my-2 border-t border-dashed border-gray-300" />
@@ -535,7 +548,7 @@ function POSContent() {
             <div className="mt-4 border-t border-dashed border-gray-300 pt-3 text-center text-xs text-gray-500">
               <p className="font-semibold">ধন্যবাদ, আবার আসবেন।</p>
             </div>
-            <div className="mt-4 flex gap-2">
+            <div className="print-hide mt-4 flex gap-2">
               <button onClick={() => window.print()} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-border py-2 text-xs font-semibold hover:bg-gray-50">
                 <Receipt className="size-3.5" /> Print
               </button>

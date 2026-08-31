@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { formatTaka, toBnNumber } from "@/lib/format";
+import { formatTaka, toBnNumber, formatOrderDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type Order = {
@@ -30,6 +30,7 @@ type Order = {
   payment: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   date: string;
+  time: string;
 };
 
 type StatusHistoryEntry = {
@@ -121,6 +122,7 @@ function OrdersPage() {
               payment: (order["payment_method"] as string) || "COD",
               status: (order["status"] as Order["status"]) || "pending",
               date: (order["created_at"] as string)?.slice(0, 10) || "",
+              time: order["created_at"] ? new Date(order["created_at"] as string).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
             };
           }),
         );
@@ -474,7 +476,7 @@ function PastOrderCard({
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            {order.date} · {order.items.length}টি পণ্য
+            {formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য
           </p>
         </div>
         <div className="text-right">

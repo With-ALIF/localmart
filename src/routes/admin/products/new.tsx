@@ -9,7 +9,7 @@ import { ImageUploader } from "@/components/admin/ImageUploader";
 import type { Product, CategorySlug } from "@/data/catalog";
 
 function AddProductPage() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { categories, addProduct } = useData();
   const navigate = useNavigate();
   const [form, setForm] = useState({
@@ -28,6 +28,7 @@ function AddProductPage() {
     tags: [] as string[],
   });
 
+  if (!hydrated) return null;
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
 
   const update = (field: string, value: string | string[]) =>

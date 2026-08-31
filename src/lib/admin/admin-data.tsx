@@ -14,12 +14,18 @@ export type Order = {
   id: string;
   customer: string;
   phone: string;
+  email: string;
   address: string;
   items: { productId: string; name: string; price: number; qty: number }[];
   total: number;
   payment: string;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   date: string;
+  time: string;
+  bkashTrxId?: string;
+  bkashSender?: string;
+  nagadTrxId?: string;
+  nagadSender?: string;
 };
 
 export type StatusHistoryEntry = {
@@ -111,16 +117,19 @@ function mapCategoryToDb(c: Category) {
 }
 
 function mapOrderFromDb(row: any, items: { productId: string; name: string; price: number; qty: number }[]): Order {
+  const d = row.created_at ? new Date(row.created_at) : null;
   return {
     id: row.order_number || row.id,
     customer: row.customer_name,
     phone: row.customer_phone,
+    email: row.customer_email || "",
     address: row.address || "",
     items,
     total: row.total_amount || 0,
     payment: row.payment_method || "",
     status: row.status as Order["status"],
     date: row.created_at ? row.created_at.slice(0, 10) : "",
+    time: d ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
   };
 }
 
@@ -130,7 +139,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured) {
+      try {
+        const raw = window.localStorage.getItem("patgram_orders");
+        if (raw) {
+          setOrders(JSON.parse(raw));
+        }
+      } catch {}
+      return;
+    }
 
     async function fetchData() {
       const { data: productsData } = await supabase

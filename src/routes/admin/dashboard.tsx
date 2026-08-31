@@ -79,7 +79,7 @@ function getSalesChartData(orders: Order[], period: string) {
 }
 
 function DashboardContent() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const {
     products,
     orders,
@@ -91,13 +91,15 @@ function DashboardContent() {
   } = useData();
   const [period, setPeriod] = useState("1Y");
 
-  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
-
   const allOrders = orders.map((o) => ({ id: o.id, total: o.total, date: o.date, status: o.status }));
   const { labels: salesLabels, data: salesData } = useMemo(
     () => getSalesChartData(allOrders, period),
     [allOrders, period],
   );
+
+  if (!hydrated) return null;
+  if (!isAdminAuthenticated) return <Navigate to="/admin" />;
+
   const maxSales = Math.max(...salesData, 1);
   const lowStockProducts = products
     .filter((p) => p.stock > 0 && p.stock <= 10)

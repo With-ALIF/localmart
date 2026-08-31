@@ -10,7 +10,7 @@ import { ImageUploader } from "@/components/admin/ImageUploader";
 import type { CategorySlug } from "@/data/catalog";
 
 function EditProductContent() {
-  const { isAdminAuthenticated } = useAdminAuth();
+  const { isAdminAuthenticated, hydrated } = useAdminAuth();
   const { products, categories, updateProduct } = useData();
   const navigate = useNavigate();
   const { id } = Route.useParams();
@@ -50,6 +50,7 @@ function EditProductContent() {
       });
   }, [product]);
 
+  if (!hydrated) return null;
   if (!isAdminAuthenticated) return <Navigate to="/admin" />;
   if (!product)
     return (
