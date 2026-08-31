@@ -22,22 +22,24 @@ export async function generateOrderNumber(
     const { data, error } = await supabase
       .from("orders")
       .select("order_number")
-      .like("order_number", pattern)
-      .order("order_number", { ascending: false })
-      .limit(1);
+      .like("order_number", pattern);
 
     if (error) throw error;
 
-    let nextSerial = 1;
+    let maxSerial = 0;
     if (data && data.length > 0) {
-      const last = data[0].order_number;
-      const lastSerial = parseInt(last.split("-")[2], 10);
-      if (!isNaN(lastSerial)) {
-        nextSerial = lastSerial + 1;
+      for (const row of data) {
+        if (row.order_number) {
+          const parts = row.order_number.split("-");
+          const serial = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(serial) && serial > maxSerial) {
+            maxSerial = serial;
+          }
+        }
       }
     }
 
-    return `${prefix}-${yymm}-${String(nextSerial).padStart(4, "0")}`;
+    return `${prefix}-${yymm}-${String(maxSerial + 1).padStart(4, "0")}`;
   }
 
   // Offline fallback: count from localStorage
@@ -48,11 +50,18 @@ export async function generateOrderNumber(
     const items: { order_number?: string; id?: string }[] = raw
       ? JSON.parse(raw)
       : [];
-    const samePrefix = items.filter((item) =>
-      (item.order_number || item.id || "").startsWith(`${prefix}-${yymm}-`)
-    );
-    const nextSerial = samePrefix.length + 1;
-    return `${prefix}-${yymm}-${String(nextSerial).padStart(4, "0")}`;
+    let maxSerial = 0;
+    for (const item of items) {
+      const num = item.order_number || item.id || "";
+      if (num.startsWith(`${prefix}-${yymm}-`)) {
+        const parts = num.split("-");
+        const serial = parseInt(parts[parts.length - 1], 10);
+        if (!isNaN(serial) && serial > maxSerial) {
+          maxSerial = serial;
+        }
+      }
+    }
+    return `${prefix}-${yymm}-${String(maxSerial + 1).padStart(4, "0")}`;
   } catch {
     return `${prefix}-${yymm}-0001`;
   }

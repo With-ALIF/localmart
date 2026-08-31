@@ -13,12 +13,14 @@ import {
   ChevronDown,
   PackageCheck,
   Settings,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useStoreSettings } from "@/lib/store-settings";
 import { useShop } from "@/lib/shop-store";
 import { useAuth } from "@/lib/auth-store";
+import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { toBnNumber, formatTaka } from "@/lib/format";
 import { productSlug } from "@/data/catalog";
 import { cn } from "@/lib/utils";
@@ -43,6 +45,7 @@ function CountBadge({ count }: { count: number }) {
 export function Header() {
   const { cartCount, wishlistCount, products, categories } = useShop();
   const { user, logout, hydrated } = useAuth();
+  const { isAdminAuthenticated, adminLogout } = useAdminAuth();
   const settings = useStoreSettings();
   const [term, setTerm] = useState("");
   const [focused, setFocused] = useState(false);
@@ -165,30 +168,55 @@ export function Header() {
         </div>
 
         <nav className="ml-auto flex items-center gap-1 md:gap-2">
-          <Link
-            to="/orders"
-            aria-label="আমার অর্ডার"
-            className="hidden size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary md:flex"
-          >
-            <Package className="size-[18px]" />
-          </Link>
-          <Link
-            to="/wishlist"
-            aria-label="উইশলিস্ট"
-            className="relative hidden size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary md:flex"
-          >
-            <Heart className="size-[18px]" />
-            <CountBadge count={wishlistCount} />
-          </Link>
-          <Link
-            to="/cart"
-            aria-label="কার্ট"
-            className="relative flex size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary"
-          >
-            <ShoppingCart className="size-[18px]" />
-            <CountBadge count={cartCount} />
-          </Link>
-          {hydrated && user ? (
+          {!isAdminAuthenticated && (
+            <>
+              <Link
+                to="/orders"
+                aria-label="আমার অর্ডার"
+                className="hidden size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary md:flex"
+              >
+                <Package className="size-[18px]" />
+              </Link>
+              <Link
+                to="/wishlist"
+                aria-label="উইশলিস্ট"
+                className="relative hidden size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary md:flex"
+              >
+                <Heart className="size-[18px]" />
+                <CountBadge count={wishlistCount} />
+              </Link>
+              <Link
+                to="/cart"
+                aria-label="কার্ট"
+                className="relative flex size-9 items-center justify-center rounded-full text-foreground transition hover:bg-secondary"
+              >
+                <ShoppingCart className="size-[18px]" />
+                <CountBadge count={cartCount} />
+              </Link>
+            </>
+          )}
+
+          {isAdminAuthenticated ? (
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin"
+                className="flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-card transition hover:opacity-90"
+              >
+                <ShieldCheck className="size-3.5" />
+                <span>এডমিন প্যানেল</span>
+              </Link>
+              <button
+                onClick={async () => {
+                  await adminLogout();
+                  navigate({ to: "/" });
+                }}
+                title="লগআউট"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-red-50 hover:text-red-600"
+              >
+                <LogOut className="size-4" />
+              </button>
+            </div>
+          ) : hydrated && user ? (
             <div ref={userMenuRef} className="relative hidden md:block">
               <button
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
@@ -283,9 +311,6 @@ export function Header() {
               )}
             </Link>
           ))}
-          <span className="ml-auto text-[11px] font-medium text-muted-foreground">
-            ৳৫০০+ অর্ডারে ফ্রি ডেলিভারি · ঢাকায় ২৪ ঘণ্টায় ডেলিভারি
-          </span>
         </div>
       </div>
     </header>

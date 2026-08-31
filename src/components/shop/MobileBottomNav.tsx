@@ -1,19 +1,23 @@
 import { Link } from "@tanstack/react-router";
-import { Home, LayoutGrid, Package, ShoppingCart, User } from "lucide-react";
+import { Home, LayoutGrid, Package, ShoppingCart, User, ShieldCheck } from "lucide-react";
 import { useShop } from "@/lib/shop-store";
+import { useAdminAuth } from "@/lib/admin/admin-auth";
 import { toBnNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-const links = [
-  { to: "/", label: "হোম", icon: Home },
-  { to: "/categories", label: "ক্যাটাগরি", icon: LayoutGrid },
-  { to: "/products", label: "পণ্য", icon: Package },
-  { to: "/cart", label: "কার্ট", icon: ShoppingCart },
-  { to: "/account", label: "অ্যাকাউন্ট", icon: User },
-] as const;
-
 export function MobileBottomNav() {
   const { cartCount } = useShop();
+  const { isAdminAuthenticated } = useAdminAuth();
+
+  const links = [
+    { to: "/", label: "হোম", icon: Home },
+    { to: "/categories", label: "ক্যাটাগরি", icon: LayoutGrid },
+    { to: "/products", label: "পণ্য", icon: Package },
+    isAdminAuthenticated
+      ? { to: "/admin", label: "এডমিন", icon: ShieldCheck }
+      : { to: "/cart", label: "কার্ট", icon: ShoppingCart },
+    { to: "/account", label: "অ্যাকাউন্ট", icon: User },
+  ] as const;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-lg md:hidden">

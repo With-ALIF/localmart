@@ -119,40 +119,57 @@ function CheckoutPage() {
       return;
     }
 
-    const orderNumber = await generateOrderNumber("online");
-
     if (isSupabaseConfigured) {
       const userId = user && "id" in user ? (user as { id: string }).id : null;
 
-      const { data: orderData, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          order_number: orderNumber,
-          user_id: userId ?? undefined,
-          order_source: "online",
-          customer_name: name.trim(),
-          customer_phone: phone.trim(),
-          customer_email: user?.email || "",
-          address: address.trim(),
-          subtotal,
-          discount_amount: discount,
-          total_amount: total,
-          paid_amount: 0,
-          due_amount: total,
-          payment_method: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
-          payment_status: "pending",
-          status: "pending",
-        })
-        .select()
-        .single();
+      // Retry loop to handle race condition on order_number unique constraint
+      let orderData: { id: string } | null = null;
+      let lastOrderError: { message: string; code?: string } | null = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const freshOrderNumber = await generateOrderNumber("online");
+        const { data, error } = await supabase
+          .from("orders")
+          .insert({
+            order_number: freshOrderNumber,
+            user_id: userId ?? undefined,
+            order_source: "online",
+            customer_name: name.trim(),
+            customer_phone: phone.trim(),
+            customer_email: user?.email || "",
+            address: address.trim(),
+            subtotal,
+            discount_amount: discount,
+            total_amount: total,
+            paid_amount: 0,
+            due_amount: total,
+            payment_method: payment === "cod" ? "COD" : payment === "bkash" ? "bKash" : "Nagad",
+            payment_status: "pending",
+            status: "pending",
+          })
+          .select()
+          .single();
 
-      if (orderError) {
-        toast.error("অর্ডার দেওয়া যায়নি", { description: orderError.message });
+        if (!error) {
+          orderData = data;
+          break;
+        }
+        // 23505 = unique_violation in PostgreSQL
+        if (error.code === "23505") {
+          lastOrderError = error;
+          continue; // retry with a new order number
+        }
+        // Any other error → fail immediately
+        toast.error("অর্ডার দেওয়া যায়নি", { description: error.message });
+        return;
+      }
+
+      if (!orderData) {
+        toast.error("অর্ডার দেওয়া যায়নি", { description: lastOrderError?.message });
         return;
       }
 
       const orderItems = cartItems.map(({ product, qty }) => ({
-        order_id: orderData.id,
+        order_id: orderData!.id,
         product_id: product.id,
         product_name: product.name,
         unit_price: product.price,
@@ -410,9 +427,9 @@ function CheckoutPage() {
             </h2>
             <div className="space-y-3">
               {[
-                { id: "cod", label: "ক্যাশ অন ডেলিভারি", desc: "ডেলিভারি পেতে টাকা দিন" },
-                { id: "bkash", label: "bKash", desc: "মোবাইল পেমেন্ট" },
-                { id: "nagad", label: "Nagad", desc: "মোবাইল পেমেন্ট" },
+                { id: "cod", label: "ক্যাশ অন ডেলিভারি", desc: "ডেলিভারি পেয়ে টাকা দিন" },
+                { id: "bkash", label: "bKash", desc: "সেন্ড মানি" },
+                { id: "nagad", label: "Nagad", desc: "সেন্ড মানি" },
               ].map((m) => (
                 <label
                   key={m.id}

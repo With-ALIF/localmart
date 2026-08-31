@@ -2,8 +2,8 @@ import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-ro
 import { useState } from "react";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
-import { useAdminAuth } from "@/lib/admin/admin-auth";
-import { useData } from "@/lib/admin/admin-data";
+import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
+import { DataProvider, useData } from "@/lib/admin/admin-data";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import type { Product, CategorySlug } from "@/data/catalog";
@@ -227,6 +227,16 @@ function AddProductPage() {
   );
 }
 
+function AdminNewProductPage() {
+  return (
+    <AdminAuthProvider>
+      <DataProvider>
+        <AddProductPage />
+      </DataProvider>
+    </AdminAuthProvider>
+  );
+}
+
 export const Route = createFileRoute("/admin/products/new")({
-  component: AddProductPage,
+  component: AdminNewProductPage,
 });

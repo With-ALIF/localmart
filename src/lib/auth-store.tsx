@@ -9,7 +9,7 @@ import {
 } from "react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
-type User = {
+export type User = {
   id?: string;
   name: string;
   email: string;
@@ -30,13 +30,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function mapUser(data: { id: string; email?: string; created_at?: string; user_metadata?: Record<string, any> }, profile?: { name?: string; phone?: string; avatar_url?: string } | null): User {
+function mapUser(
+  data: { id: string; email?: string; created_at?: string; user_metadata?: Record<string, any> },
+  profile?: { name?: string; phone?: string | null; avatar_url?: string | null } | null,
+): User {
   return {
     id: data.id,
     name: profile?.name ?? data.user_metadata?.full_name ?? data.user_metadata?.name ?? "",
     email: data.email ?? "",
-    phone: profile?.phone ?? data.user_metadata?.phone ?? "",
-    avatar: profile?.avatar_url ?? data.user_metadata?.avatar_url ?? "",
+    phone: (profile?.phone ?? data.user_metadata?.phone) || "",
+    avatar: (profile?.avatar_url ?? data.user_metadata?.avatar_url) || "",
     createdAt: data.created_at ?? "",
   };
 }
@@ -48,6 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
+      try {
+        const raw = window.localStorage.getItem("patgram_session");
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (u && (u.email || u.name)) {
+            setUser(u);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch {}
       setHydrated(true);
       return;
     }
@@ -85,7 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }, { onConflict: "id" });
         }
 
-        const u = mapUser(session.user, { ...profile, avatar_url: meta.picture || meta.avatar_url || profile?.avatar_url || "" });
+        const u = mapUser(session.user, {
+          ...profile,
+          avatar_url: meta.picture || meta.avatar_url || profile?.avatar_url || "",
+        });
         setUser(u);
         setIsAuthenticated(true);
       } else {
@@ -98,10 +114,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (emailInput: string, passwordInput: string): Promise<{ success: boolean; error?: string }> => {
-    if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
     const email = emailInput.trim().toLowerCase();
     const password = passwordInput.trim();
     if (!email || !password) return { success: false, error: "ইমেইল এবং পাসওয়ার্ড দিন" };
+
+    if (!isSupabaseConfigured) {
+      const mockUser: User = {
+        name: email.split("@")[0] || "ব্যবহারকারী",
+        email,
+        phone: "",
+        avatar: "",
+        createdAt: new Date().toISOString(),
+      };
+      setUser(mockUser);
+      setIsAuthenticated(true);
+      try {
+        window.localStorage.setItem("patgram_session", JSON.stringify(mockUser));
+      } catch {}
+      return { success: true };
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -130,7 +161,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (nameInput: string, emailInput: string, phoneInput: string, passwordInput: string): Promise<{ success: boolean; error?: string }> => {
-      if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
       const name = nameInput.trim();
       const email = emailInput.trim().toLowerCase();
       const phone = phoneInput.trim();
@@ -138,6 +168,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!name || !email || !password) return { success: false, error: "সব তথ্য পূরণ করুন" };
       if (password.length < 6) return { success: false, error: "পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে" };
+
+      if (!isSupabaseConfigured) {
+        const mockUser: User = {
+          name,
+          email,
+          phone,
+          avatar: "",
+          createdAt: new Date().toISOString(),
+        };
+        setUser(mockUser);
+        setIsAuthenticated(true);
+        try {
+          window.localStorage.setItem("patgram_session", JSON.stringify(mockUser));
+        } catch {}
+        return { success: true };
+      }
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -156,7 +202,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!data.user) return { success: false, error: "নিবন্ধন ব্যর্থ হয়েছে।" };
 
       if (data.session) {
-        // If session exists, user is immediately logged in
         await supabase.from("profiles").upsert({
           id: data.user.id,
           name,
@@ -177,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     if (!isSupabaseConfigured) return { success: false, error: "Supabase configure হয়নি।" };
 
-    const siteUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+    const siteUrl = (typeof window !== "undefined" ? window.location.origin : "");
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -196,6 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     if (isSupabaseConfigured) {
       supabase.auth.signOut().catch(() => {});
+    } else {
+      try {
+        window.localStorage.removeItem("patgram_session");
+      } catch {}
     }
     setUser(null);
     setIsAuthenticated(false);

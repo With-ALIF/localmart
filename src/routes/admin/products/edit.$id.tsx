@@ -2,8 +2,8 @@ import { createFileRoute, Link, Navigate, useNavigate } from "@tanstack/react-ro
 import { useState, useEffect } from "react";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
-import { useAdminAuth } from "@/lib/admin/admin-auth";
-import { useData } from "@/lib/admin/admin-data";
+import { AdminAuthProvider, useAdminAuth } from "@/lib/admin/admin-auth";
+import { DataProvider, useData } from "@/lib/admin/admin-data";
 import { useShop } from "@/lib/shop-store";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -262,6 +262,16 @@ function EditProductContent() {
   );
 }
 
+function AdminEditProductPage() {
+  return (
+    <AdminAuthProvider>
+      <DataProvider>
+        <EditProductContent />
+      </DataProvider>
+    </AdminAuthProvider>
+  );
+}
+
 export const Route = createFileRoute("/admin/products/edit/$id")({
-  component: EditProductContent,
+  component: AdminEditProductPage,
 });

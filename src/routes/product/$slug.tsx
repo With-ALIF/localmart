@@ -60,7 +60,7 @@ function ProductDetailsPage() {
   const img = productImage(product, categories);
   const fallback = productFallbackIcon(product, categories);
 
-  const thumbnails = [img, img, img, img];
+  const thumbnails = [img].filter(Boolean);
 
   return (
     <div className="container-page py-6 sm:py-8">
@@ -83,59 +83,69 @@ function ProductDetailsPage() {
       <div className="grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-3xl border border-border bg-card">
-            <ProductImage
-              product={product}
-              categories={categories}
-              className="aspect-square w-full"
-              imgClassName="aspect-square w-full object-cover"
-              width={800}
-              height={800}
-            />
+            {thumbnails[selectedImage] ? (
+              <img
+                src={thumbnails[selectedImage]}
+                alt={product.name}
+                className="aspect-square w-full object-cover"
+                width={800}
+                height={800}
+              />
+            ) : fallback ? (
+              <div className="flex aspect-square w-full items-center justify-center bg-surface">
+                <span className="select-none text-7xl">{fallback}</span>
+              </div>
+            ) : (
+              <div className="flex aspect-square w-full items-center justify-center bg-surface">
+                <span className="select-none text-7xl text-muted-foreground/30">📦</span>
+              </div>
+            )}
             {off > 0 && (
               <span className="absolute left-4 top-4 rounded-full bg-destructive px-3 py-1.5 text-sm font-bold text-destructive-foreground">
                 -{toBnNumber(off)}% ছাড়
               </span>
             )}
 
-            <button
-              onClick={() =>
-                setSelectedImage((prev) => (prev > 0 ? prev - 1 : thumbnails.length - 1))
-              }
-              className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-card/80 backdrop-blur transition hover:bg-card"
-              aria-label="আগের ছবি"
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              onClick={() =>
-                setSelectedImage((prev) => (prev < thumbnails.length - 1 ? prev + 1 : 0))
-              }
-              className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-card/80 backdrop-blur transition hover:bg-card"
-              aria-label="পরের ছবি"
-            >
-              <ChevronRight className="size-4" />
-            </button>
+            {thumbnails.length > 1 && (
+              <>
+                <button
+                  onClick={() =>
+                    setSelectedImage((prev) => (prev > 0 ? prev - 1 : thumbnails.length - 1))
+                  }
+                  className="absolute left-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-card/80 backdrop-blur transition hover:bg-card"
+                  aria-label="আগের ছবি"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+                <button
+                  onClick={() =>
+                    setSelectedImage((prev) => (prev < thumbnails.length - 1 ? prev + 1 : 0))
+                  }
+                  className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-card/80 backdrop-blur transition hover:bg-card"
+                  aria-label="পরের ছবি"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </>
+            )}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {thumbnails.map((thumb, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedImage(i)}
-                className={cn(
-                  "size-16 shrink-0 overflow-hidden rounded-xl border-2 transition",
-                  selectedImage === i ? "border-primary" : "border-border hover:border-primary/50",
-                )}
-              >
-                <ProductImage
-                  product={product}
-                  categories={categories}
-                  className="size-full"
-                  imgClassName="size-full object-cover"
-                />
-              </button>
-            ))}
-          </div>
+          {thumbnails.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto no-scrollbar">
+              {thumbnails.map((thumb, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedImage(i)}
+                  className={cn(
+                    "size-16 shrink-0 overflow-hidden rounded-xl border-2 transition",
+                    selectedImage === i ? "border-primary" : "border-border hover:border-primary/50",
+                  )}
+                >
+                  <img src={thumb} alt="" className="size-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="space-y-5">

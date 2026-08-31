@@ -36,6 +36,7 @@ export interface Database {
           avatar_url?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       categories: {
         Row: {
@@ -63,6 +64,7 @@ export interface Database {
           image?: string;
           sort_order?: number;
         };
+        Relationships: [];
       };
       products: {
         Row: {
@@ -123,6 +125,7 @@ export interface Database {
           is_active?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       addresses: {
         Row: {
@@ -152,6 +155,7 @@ export interface Database {
           address?: string;
           is_default?: boolean;
         };
+        Relationships: [];
       };
       orders: {
         Row: {
@@ -215,6 +219,7 @@ export interface Database {
           admin_name?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       order_items: {
         Row: {
@@ -243,6 +248,7 @@ export interface Database {
           quantity?: number;
           subtotal?: number;
         };
+        Relationships: [];
       };
       settings: {
         Row: {
@@ -262,6 +268,7 @@ export interface Database {
           value?: Json;
           updated_at?: string;
         };
+        Relationships: [];
       };
       order_status_history: {
         Row: {
@@ -287,6 +294,7 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
         };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
@@ -302,5 +310,6 @@ export interface Database {
       };
     };
     Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

@@ -11,19 +11,15 @@ import {
   Trash2,
   Plus,
   ChevronRight,
-  Star,
   CheckCircle,
   Clock,
   Truck,
   XCircle,
-  Eye,
-  Home,
-  Building,
-  Phone,
-  Mail,
   Calendar,
   Save,
   X,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { useShop } from "@/lib/shop-store";
@@ -39,7 +35,8 @@ type Tab =
   | "orders"
   | "wishlist"
   | "cart"
-  | "addresses";
+  | "addresses"
+  | "logout";
 
 type Order = {
   id: string;
@@ -74,6 +71,11 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   cancelled: { label: "বাতিল", color: "text-red-600", bg: "bg-red-100", icon: XCircle },
 };
 
+function getStatusConfig(status?: string) {
+  const key = (status || "").toLowerCase();
+  return statusConfig[key] || statusConfig.pending;
+}
+
 const paymentLabels: Record<string, string> = {
   COD: "ক্যাশ অন ডেলিভারি",
   bKash: "bKash",
@@ -92,6 +94,7 @@ const sidebarItems: { tab: Tab; label: string; icon: typeof User }[] = [
   { tab: "wishlist", label: "Wishlist", icon: Heart },
   { tab: "cart", label: "আমার Cart", icon: ShoppingCart },
   { tab: "addresses", label: "ঠিকানা", icon: MapPin },
+  { tab: "logout", label: "লগআউট", icon: LogOut },
 ];
 
 function AccountPage() {
@@ -113,7 +116,7 @@ function AccountPage() {
     if (isSupabaseConfigured) {
       (async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user.id;
+        const uid = session?.user?.id;
         if (!uid) return;
 
         const { data: addrRows } = await supabase
@@ -122,13 +125,13 @@ function AccountPage() {
           .eq("user_id", uid);
         if (addrRows) {
           setAddresses(
-            addrRows.map((a) => ({
+            addrRows.map((a: Record<string, any>) => ({
               id: a.id,
               label: a.label,
               name: a.name,
               phone: a.phone,
               address: a.address,
-              isDefault: a.is_default,
+              isDefault: !!a.is_default,
             })),
           );
         }
@@ -146,21 +149,21 @@ function AccountPage() {
               .select("*")
               .eq("order_id", o.id);
             orders.push({
-              id: o.order_number,
-              customer: o.customer_name,
-              phone: o.customer_phone,
+              id: o.order_number || o.id,
+              customer: o.customer_name || "",
+              phone: o.customer_phone || "",
               address: o.address || "",
               email: o.customer_email || "",
               items:
-                itemRows?.map((i) => ({
+                itemRows?.map((i: Record<string, any>) => ({
                   productId: i.product_id || "",
-                  name: i.product_name,
-                  price: i.unit_price,
-                  qty: i.quantity,
+                  name: i.product_name || "",
+                  price: i.unit_price || 0,
+                  qty: i.quantity || 1,
                 })) ?? [],
-              total: o.total_amount,
-              payment: o.payment_method,
-              status: o.status as Order["status"],
+              total: o.total_amount || 0,
+              payment: o.payment_method || "COD",
+              status: (o.status?.toLowerCase() as Order["status"]) || "pending",
               date: o.created_at?.slice(0, 10) || "",
               time: o.created_at ? new Date(o.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
             });
@@ -183,19 +186,24 @@ function AccountPage() {
 
   useEffect(() => {
     if (user) {
-      setProfileForm({ name: user.name, email: user.email, phone: user.phone });
+      setProfileForm({ name: user.name || "", email: user.email || "", phone: user.phone || "" });
     }
   }, [user]);
 
   const myOrders = user
     ? allOrders.filter(
-        (o) => o.email === user.email || o.phone === user.phone || o.customer === user.name,
+        (o) =>
+          (user.email && o.email === user.email) ||
+          (user.phone && o.phone === user.phone) ||
+          (user.name && o.customer === user.name),
       )
     : [];
-  const sortedOrders = [...myOrders].sort((a, b) => b.date.localeCompare(a.date));
+  const sortedOrders = [...myOrders].sort((a, b) =>
+    ((b?.date || "") + (b?.time || "")).localeCompare((a?.date || "") + (a?.time || "")),
+  );
   const filteredOrders =
-    orderFilter === "all" ? sortedOrders : sortedOrders.filter((o) => o.status === orderFilter);
-  const completedOrders = sortedOrders.filter((o) => o.status === "delivered").length;
+    orderFilter === "all" ? sortedOrders : sortedOrders.filter((o) => (o.status || "").toLowerCase() === orderFilter);
+  const completedOrders = sortedOrders.filter((o) => (o.status || "").toLowerCase() === "delivered").length;
   const wishlistProducts = wishlist
     .map((id) => products.find((p) => p.id === id))
     .filter(Boolean) as Product[];
@@ -209,7 +217,7 @@ function AccountPage() {
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    const uid = session?.user.id;
+    const uid = session?.user?.id;
     if (!uid) return;
 
     const existingIds = addresses.map((a) => a.id);
@@ -251,7 +259,7 @@ function AccountPage() {
 
     if (isSupabaseConfigured) {
       const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user.id;
+      const uid = session?.user?.id;
       if (uid) {
         await supabase
           .from("profiles")
@@ -300,21 +308,32 @@ function AccountPage() {
 
   const bnMonths = ["জানুয়ারি", "ফেব্রুয়ারি", "মার্চ", "এপ্রিল", "মে", "জুন", "জুলাই", "আগস্ট", "সেপ্টেম্বর", "অক্টোবর", "নভেম্বর", "ডিসেম্বর"];
   const memberSince = (() => {
-    if (!user.createdAt) return "";
+    if (!user.createdAt) return "২০২৬";
     try {
       const d = new Date(user.createdAt);
-      return `${toBnNumber(d.getDate())} ${bnMonths[d.getMonth()]}, ${toBnNumber(d.getFullYear())}`;
+      if (isNaN(d.getTime())) return "২০২৬";
+      return `${toBnNumber(d.getDate())} ${bnMonths[d.getMonth()] || ""}, ${toBnNumber(d.getFullYear())}`;
     } catch {
-      return "";
+      return "২০২৬";
     }
   })();
 
-  const initials = user.name
-    .split(" ")
-    .map((w) => w[0])
+  const initials = (user.name || "U")
+    .trim()
+    .split(/\s+/)
+    .map((w) => w[0] || "")
     .join("")
     .slice(0, 2)
-    .toUpperCase();
+    .toUpperCase() || "U";
+
+  const handleTabClick = (tab: Tab) => {
+    if (tab === "logout") {
+      logout();
+      navigate({ to: "/" });
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <div className="container-page py-6 sm:py-8">
@@ -335,7 +354,7 @@ function AccountPage() {
             )}
           </div>
           <div className="text-center sm:text-left">
-            <h1 className="font-display text-2xl font-extrabold">{user.name}</h1>
+            <h1 className="font-display text-2xl font-extrabold">{user.name || "ব্যবহারকারী"}</h1>
             <p className="text-sm text-muted-foreground">{user.email}</p>
             {user.phone && <p className="text-sm text-muted-foreground">{user.phone}</p>}
             <p className="mt-1 flex items-center justify-center gap-1 text-xs text-muted-foreground sm:justify-start">
@@ -357,52 +376,70 @@ function AccountPage() {
         {/* Sidebar (Desktop) */}
         <aside className="hidden lg:block lg:w-64 shrink-0">
           <nav className="rounded-2xl border border-border bg-card p-2 shadow-soft">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.tab}
-                onClick={() => setActiveTab(item.tab)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
-                  activeTab === item.tab
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                )}
-              >
-                <item.icon className="size-4" />
-                {item.label}
-                {item.tab === "wishlist" && wishlistCount > 0 && (
-                  <span className="ml-auto text-xs">{toBnNumber(wishlistCount)}</span>
-                )}
-                {item.tab === "cart" && cartCount > 0 && (
-                  <span className="ml-auto text-xs">{toBnNumber(cartCount)}</span>
-                )}
-              </button>
-            ))}
-            <div className="my-2 border-t border-border" />
-            <button
-              onClick={() => { logout(); navigate({ to: "/" }); }}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition hover:bg-red-50"
-            >
-              <LogOut className="size-4" />
-              লগআউট
-            </button>
+            {sidebarItems.map((item) => {
+              const isLogout = item.tab === "logout";
+              return (
+                <div key={item.tab}>
+                  {isLogout && <div className="my-2 border-t border-border" />}
+                  <button
+                    onClick={() => handleTabClick(item.tab)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                      isLogout
+                        ? "text-destructive hover:bg-destructive/10"
+                        : activeTab === item.tab
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                    )}
+                  >
+                    <item.icon className="size-4" />
+                    {item.label}
+                    {item.tab === "wishlist" && wishlistCount > 0 && (
+                      <span className="ml-auto text-xs font-bold text-primary">{toBnNumber(wishlistCount)}</span>
+                    )}
+                    {item.tab === "cart" && cartCount > 0 && (
+                      <span className="ml-auto text-xs font-bold text-primary">{toBnNumber(cartCount)}</span>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
           </nav>
         </aside>
 
         {/* Mobile Tab Selector */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar lg:hidden">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar lg:hidden pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
           {sidebarItems.map((item) => (
             <button
               key={item.tab}
-              onClick={() => setActiveTab(item.tab)}
+              onClick={() => handleTabClick(item.tab)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition",
-                activeTab === item.tab
-                  ? "bg-primary text-primary-foreground"
-                  : "border border-border bg-surface text-muted-foreground",
+                "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-semibold transition",
+                item.tab === "logout"
+                  ? "border border-destructive/20 bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : activeTab === item.tab
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "border border-border bg-surface text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
+              <item.icon className="size-3.5" />
               {item.label}
+              {item.tab === "wishlist" && wishlistCount > 0 && (
+                <span className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  activeTab === item.tab ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"
+                )}>
+                  {toBnNumber(wishlistCount)}
+                </span>
+              )}
+              {item.tab === "cart" && cartCount > 0 && (
+                <span className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-bold",
+                  activeTab === item.tab ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/10 text-primary"
+                )}>
+                  {toBnNumber(cartCount)}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -421,7 +458,7 @@ function AccountPage() {
           )}
           {activeTab === "profile" && (
             <ProfileTab
-              user={user}
+              user={{ name: user.name || "", email: user.email || "", phone: user.phone || "" }}
               editingProfile={editingProfile}
               setEditingProfile={setEditingProfile}
               profileForm={profileForm}
@@ -441,10 +478,11 @@ function AccountPage() {
               products={wishlistProducts}
               removeFromWishlist={removeFromWishlist}
               addToCart={addToCart}
+              categories={categories}
             />
           )}
           {activeTab === "cart" && (
-            <CartTab cartItems={cartItems} clearCart={clearCart} />
+            <CartTab cartItems={cartItems} clearCart={clearCart} categories={categories} />
           )}
           {activeTab === "addresses" && (
             <AddressesTab
@@ -518,7 +556,7 @@ function OverviewTab({
           </div>
           <div className="space-y-2">
             {recentOrders.map((order) => {
-              const config = statusConfig[order.status];
+              const config = getStatusConfig(order.status);
               return (
                 <div key={order.id} className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
                   <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-lg", config.bg)}>
@@ -531,9 +569,9 @@ function OverviewTab({
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য</p>
+                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(order.date, order.time)} · {order.items?.length || 0}টি পণ্য</p>
                   </div>
-                  <p className="text-sm font-bold text-primary">{formatTaka(order.total)}</p>
+                  <p className="text-sm font-bold text-primary">{formatTaka(order.total || 0)}</p>
                 </div>
               );
             })}
@@ -631,14 +669,14 @@ function ProfileTab({
               <User className="size-4 text-muted-foreground" />
               <div>
                 <p className="text-[10px] text-muted-foreground">নাম</p>
-                <p className="text-sm font-semibold">{user.name}</p>
+                <p className="text-sm font-semibold">{user.name || "নেই"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <Mail className="size-4 text-muted-foreground" />
               <div>
                 <p className="text-[10px] text-muted-foreground">ইমেইল</p>
-                <p className="text-sm font-semibold">{user.email}</p>
+                <p className="text-sm font-semibold">{user.email || "নেই"}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -712,8 +750,12 @@ function OrdersTab({
       ) : (
         <div className="space-y-3">
           {orders.map((order) => {
-            const config = statusConfig[order.status];
+            const config = getStatusConfig(order.status);
             const expanded = expandedId === order.id;
+            const currentStepIndex = statusSteps.indexOf(
+              (order.status?.toLowerCase() as typeof statusSteps[number]) ?? "pending",
+            );
+
             return (
               <div key={order.id} className="rounded-2xl border border-border bg-card shadow-soft">
                 <button
@@ -730,9 +772,11 @@ function OrdersTab({
                         {config.label}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{formatOrderDateTime(order.date, order.time)} · {order.items.length}টি পণ্য</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatOrderDateTime(order.date, order.time)} · {order.items?.length || 0}টি পণ্য
+                    </p>
                   </div>
-                  <p className="text-sm font-bold text-primary">{formatTaka(order.total)}</p>
+                  <p className="text-sm font-bold text-primary">{formatTaka(order.total || 0)}</p>
                   <ChevronRight className={cn("size-4 text-muted-foreground transition", expanded && "rotate-90")} />
                 </button>
 
@@ -740,7 +784,8 @@ function OrdersTab({
                   <div className="border-t border-border p-4">
                     <div className="mb-3 flex items-center gap-1">
                       {statusSteps.map((step, i) => {
-                        const isCompleted = i <= statusSteps.indexOf(order.status as typeof statusSteps[number]);
+                        const isCompleted = i <= (currentStepIndex >= 0 ? currentStepIndex : 0);
+                        const stepCfg = statusConfig[step] || statusConfig.pending;
                         return (
                           <div key={step} className="flex flex-1 items-center">
                             <div className="flex flex-1 flex-col items-center gap-1">
@@ -753,11 +798,16 @@ function OrdersTab({
                                 {i + 1}
                               </div>
                               <span className={cn("text-[9px] font-semibold", isCompleted ? "text-primary" : "text-muted-foreground")}>
-                                {statusConfig[step].label}
+                                {stepCfg.label}
                               </span>
                             </div>
                             {i < statusSteps.length - 1 && (
-                              <div className={cn("mx-1 h-0.5 flex-1 rounded-full", i < statusSteps.indexOf(order.status as typeof statusSteps[number]) ? "bg-primary" : "bg-muted")} />
+                              <div
+                                className={cn(
+                                  "mx-1 h-0.5 flex-1 rounded-full",
+                                  currentStepIndex >= 0 && i < currentStepIndex ? "bg-primary" : "bg-muted",
+                                )}
+                              />
                             )}
                           </div>
                         );
@@ -765,7 +815,7 @@ function OrdersTab({
                     </div>
 
                     <div className="space-y-2">
-                      {order.items.map((item, i) => (
+                      {order.items?.map((item, i) => (
                         <div key={i} className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">{item.name} × {toBnNumber(item.qty)}</span>
                           <span className="font-semibold">{formatTaka(item.price * item.qty)}</span>
@@ -773,7 +823,7 @@ function OrdersTab({
                       ))}
                     </div>
 
-                    <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                       <span>পেমেন্ট: {paymentLabels[order.payment] || order.payment}</span>
                       {order.address && <span>ঠিকানা: {order.address}</span>}
                     </div>
@@ -793,10 +843,12 @@ function WishlistTab({
   products: items,
   removeFromWishlist,
   addToCart,
+  categories,
 }: {
   products: Product[];
   removeFromWishlist: (id: string) => void;
   addToCart: (id: string) => void;
+  categories: any[];
 }) {
   if (items.length === 0) {
     return (
@@ -861,9 +913,11 @@ function WishlistTab({
 function CartTab({
   cartItems,
   clearCart,
+  categories,
 }: {
   cartItems: { product: Product; qty: number }[];
   clearCart: () => void;
+  categories: any[];
 }) {
   if (cartItems.length === 0) {
     return (
@@ -886,12 +940,17 @@ function CartTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-extrabold">আমার Cart</h2>
-        <button
-          onClick={clearCart}
-          className="text-xs font-semibold text-red-500 hover:underline"
-        >
-          সব মুছুন
-        </button>
+        <div className="flex items-center gap-3">
+          <Link to="/cart" className="text-xs font-semibold text-primary hover:underline">
+            কার্ট পৃষ্ঠা দেখুন →
+          </Link>
+          <button
+            onClick={clearCart}
+            className="text-xs font-semibold text-red-500 hover:underline"
+          >
+            সব মুছুন
+          </button>
+        </div>
       </div>
       <div className="space-y-3">
         {cartItems.map((item) => (
@@ -921,12 +980,20 @@ function CartTab({
           <span className="text-muted-foreground">মোট ({toBnNumber(cartItems.reduce((n, i) => n + i.qty, 0))}টি)</span>
           <span className="font-display text-lg font-extrabold text-primary">{formatTaka(total)}</span>
         </div>
-        <Link
-          to="/checkout"
-          className="mt-3 block w-full rounded-full bg-primary py-3 text-center text-sm font-bold text-primary-foreground transition hover:opacity-90"
-        >
-          চেকআউট
-        </Link>
+        <div className="mt-3 flex gap-3">
+          <Link
+            to="/cart"
+            className="flex-1 rounded-full border border-border py-2.5 text-center text-sm font-bold text-foreground transition hover:bg-secondary"
+          >
+            কার্ট দেখুন
+          </Link>
+          <Link
+            to="/checkout"
+            className="flex-1 rounded-full bg-primary py-2.5 text-center text-sm font-bold text-primary-foreground transition hover:opacity-90"
+          >
+            চেকআউট
+          </Link>
+        </div>
       </div>
     </div>
   );
@@ -961,7 +1028,7 @@ function AddressesTab({
 
     if (isSupabaseConfigured) {
       const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user.id;
+      const uid = session?.user?.id;
       if (!uid) return;
 
       if (editingAddress) {
@@ -1017,7 +1084,7 @@ function AddressesTab({
         );
       } else {
         const newAddr: Address = {
-          id: crypto.randomUUID(),
+          id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()),
           ...form,
           isDefault: addresses.length === 0,
         };
@@ -1029,13 +1096,13 @@ function AddressesTab({
 
   const handleDelete = async (id: string) => {
     const updated = addresses.filter((a) => a.id !== id);
-    if (addresses.find((a) => a.id === id)?.isDefault && updated.length > 0) {
+    if (addresses.find((a) => a.id === id)?.isDefault && updated.length > 0 && updated[0]) {
       updated[0].isDefault = true;
     }
 
     if (isSupabaseConfigured) {
       await supabase.from("addresses").delete().eq("id", id);
-      if (updated.length > 0 && updated[0].isDefault) {
+      if (updated.length > 0 && updated[0] && updated[0].isDefault) {
         await supabase
           .from("addresses")
           .update({ is_default: true })

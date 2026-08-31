@@ -77,9 +77,8 @@ function mapProductFromDb(row: any): Product {
   };
 }
 
-function mapProductToDb(p: Product) {
-  return {
-    id: p.id,
+function mapProductToDb(p: Product, includeId = true) {
+  const row: Record<string, unknown> = {
     name: p.name,
     description: p.description,
     details: p.details,
@@ -94,6 +93,11 @@ function mapProductToDb(p: Product) {
     image: p.image || null,
     tags: p.tags,
   };
+  // Only include id when updating (id must be a valid UUID for Supabase)
+  if (includeId && p.id && !p.id.startsWith("p-")) {
+    row.id = p.id;
+  }
+  return row;
 }
 
 function mapCategoryFromDb(row: any): Category {
@@ -163,30 +167,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const { data: ordersData } = await supabase
         .from("orders")
         .select("*")
-        .eq("order_source", "online")
         .order("created_at", { ascending: false });
 
       if (productsData) setProducts(productsData.map(mapProductFromDb));
       if (categoriesData) setCategories(categoriesData.map(mapCategoryFromDb));
 
-      if (ordersData) {
-        const mappedOrders: Order[] = [];
-        for (const row of ordersData) {
-          const { data: itemsData } = await supabase
-            .from("order_items")
-            .select("*")
-            .eq("order_id", row.id);
+      if (ordersData && ordersData.length > 0) {
+        const orderIds = ordersData.map((o) => o.id);
 
-          const items =
-            itemsData?.map((item) => ({
-              productId: item.product_id || "",
-              name: item.product_name,
-              price: item.unit_price,
-              qty: item.quantity,
-            })) ?? [];
+        // Batch-fetch all items in one query instead of N+1 per-order
+        const { data: allItems } = await supabase
+          .from("order_items")
+          .select("*")
+          .in("order_id", orderIds);
 
-          mappedOrders.push(mapOrderFromDb(row, items));
+        const itemsByOrderId = new Map<string, { productId: string; name: string; price: number; qty: number }[]>();
+        for (const item of allItems ?? []) {
+          const list = itemsByOrderId.get(item.order_id) ?? [];
+          list.push({
+            productId: item.product_id || "",
+            name: item.product_name,
+            price: item.unit_price,
+            qty: item.quantity,
+          });
+          itemsByOrderId.set(item.order_id, list);
         }
+
+        const mappedOrders: Order[] = ordersData.map((row) =>
+          mapOrderFromDb(row, itemsByOrderId.get(row.id) ?? [])
+        );
         setOrders(mappedOrders);
       }
     }
@@ -196,9 +205,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addProduct = useCallback(async (p: Product) => {
     if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from("products").insert(mapProductToDb(p));
+    // Don't send local p- IDs to DB — let Supabase generate a proper UUID
+    const { data, error } = await supabase
+      .from("products")
+      .insert(mapProductToDb(p, false))
+      .select("id")
+      .single();
     if (error) { console.error("Failed to add product:", error); return; }
-    setProducts((prev) => [...prev, p]);
+    // Use the DB-generated UUID in local state
+    const saved = { ...p, id: data?.id ?? p.id };
+    setProducts((prev) => [...prev, saved]);
   }, []);
 
   const updateProduct = useCallback(async (id: string, data: Partial<Product>) => {

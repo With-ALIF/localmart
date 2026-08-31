@@ -1,116 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
 import {
-  ArrowRight,
   Truck,
   Shield,
   Headphones,
   Tag,
 } from "lucide-react";
 import { useShop } from "@/lib/shop-store";
-import { ProductCard } from "@/components/shop/ProductCard";
 import { ProductGrid, SectionHeading } from "@/components/shop/ProductGrid";
 import { toBnNumber } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
 });
-
-const heroSlides = [
-  {
-    tagline: "বিশেষ অফার",
-    title: "নিত্যপ্রয়োজনীয় পণ্য",
-    subtitle: "সেরা দামে, দ্রুত ডেলিভারি",
-    cta: "এখনই কেনাকাটা করুন",
-    discount: "৩০%",
-    bg: "from-emerald-600 to-teal-700",
-  },
-  {
-    tagline: "নতুন সংগ্রহ",
-    title: "প্রিমিয়াম চাল ও ডাল",
-    subtitle: "ঘরে বসে সরাসরি অর্ডার করুন",
-    cta: "এখনই কেনাকাটা করুন",
-    discount: "২৫%",
-    bg: "from-amber-600 to-orange-700",
-  },
-  {
-    tagline: "ফ্যামিলি প্যাক",
-    title: "ইলেকট্রনিক্স সেল",
-    subtitle: "সব ইলেকট্রনিক্স আইটেমে ভারি ছাড়",
-    cta: "এখনই কেনাকাটা করুন",
-    discount: "৪০%",
-    bg: "from-blue-600 to-indigo-700",
-  },
-];
-
-function HeroBanner() {
-  const [current, setCurrent] = useState(0);
-
-  const next = useCallback(() => setCurrent((c) => (c + 1) % heroSlides.length), []);
-
-  useEffect(() => {
-    const timer = setInterval(next, 6000);
-    return () => clearInterval(timer);
-  }, [next]);
-
-  const slide = heroSlides[current]!;
-
-  return (
-    <section className="relative overflow-hidden">
-      <div
-        className={cn(
-          "flex min-h-[240px] items-center bg-gradient-to-r py-8 sm:min-h-[320px] md:min-h-[380px]",
-          slide.bg,
-        )}
-      >
-        <div className="container-page grid items-center gap-6 md:grid-cols-2">
-          <div className="space-y-4 text-white animate-fade-up">
-            <span className="inline-block rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold backdrop-blur">
-              {slide.tagline}
-            </span>
-            <h1 className="font-display text-2xl font-extrabold leading-tight sm:text-3xl md:text-4xl lg:text-5xl">
-              {slide.title}
-            </h1>
-            <p className="max-w-md text-sm text-white/85 sm:text-base">{slide.subtitle}</p>
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-gray-900 shadow-lg transition hover:shadow-xl hover:scale-105"
-            >
-              {slide.cta}
-              <ArrowRight className="size-4" />
-            </Link>
-          </div>
-
-          <div className="relative hidden md:flex md:justify-center">
-            <div className="flex size-48 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm lg:size-64">
-              <div className="text-center">
-                <span className="block font-display text-4xl font-extrabold lg:text-5xl">
-                  {slide.discount}
-                </span>
-                <span className="mt-1 block text-base font-bold text-white/80">ছাড় পাচ্ছেন</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
-        {heroSlides.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrent(i)}
-            aria-label={`ব্যানার ${toBnNumber(i + 1)}`}
-            className={cn(
-              "h-1.5 rounded-full transition-all duration-300",
-              i === current ? "w-6 bg-white" : "w-1.5 bg-white/50",
-            )}
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
 
 function TrustBadges() {
   const badges = [
@@ -121,7 +22,7 @@ function TrustBadges() {
   ];
 
   return (
-    <section className="container-page -mt-6 relative z-20">
+    <section className="container-page mt-4 sm:mt-6 relative z-20">
       <div className="grid grid-cols-2 gap-2 rounded-2xl border border-border bg-card p-3 shadow-card sm:grid-cols-4 sm:p-5">
         {badges.map((b) => (
           <div key={b.title} className="flex items-center gap-2.5">
@@ -147,8 +48,8 @@ function CategorySection({ categories, products }: { categories: any[]; products
         subtitle="সব ক্যাটাগরি ব্রাউজ করুন"
         viewAll={{ to: "/categories" }}
       />
-      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 sm:grid sm:grid-cols-4 lg:grid-cols-8">
-        {categories.map((c) => (
+      <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 sm:grid sm:grid-cols-5">
+        {categories.slice(0, 5).map((c) => (
           <Link
             key={c.id}
             to="/products"
@@ -169,32 +70,8 @@ function CategorySection({ categories, products }: { categories: any[]; products
   );
 }
 
-function OffersSection({ products }: { products: any[] }) {
-  const offers = products.filter(p => p.tags.includes("offer")).slice(0, 8);
-  if (!offers.length) return null;
-
-  return (
-    <section className="container-page mt-12">
-      <SectionHeading
-        title="বিশেষ অফার"
-        subtitle="সীমিত সময়ের জন্য বিশেষ মূল্যে"
-        viewAll={{ to: "/offers" }}
-      />
-      <div className="rounded-2xl border border-destructive/20 bg-destructive/5 p-4 sm:p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-lg bg-destructive px-2.5 py-1 text-xs font-bold text-destructive-foreground">
-            🔥 আজকের বিশেষ অফার
-          </span>
-          <span className="text-xs text-muted-foreground">নির্বাচিত পণ্যে ৩০% পর্যন্ত ছাড়</span>
-        </div>
-        <ProductGrid products={offers} />
-      </div>
-    </section>
-  );
-}
-
 function PopularSection({ products }: { products: any[] }) {
-  const popular = products.filter(p => p.tags.includes("popular")).slice(0, 8);
+  const popular = products.filter(p => p.tags.includes("popular")).slice(0, 4);
   if (!popular.length) return null;
 
   return (
@@ -210,7 +87,7 @@ function PopularSection({ products }: { products: any[] }) {
 }
 
 function NewArrivalsSection({ products }: { products: any[] }) {
-  const newItems = products.filter(p => p.tags.includes("new")).slice(0, 8);
+  const newItems = products.filter(p => p.tags.includes("new")).slice(0, 4);
   if (!newItems.length) return null;
 
   return (
@@ -226,7 +103,7 @@ function NewArrivalsSection({ products }: { products: any[] }) {
 }
 
 function FeaturedSection({ products }: { products: any[] }) {
-  const featured = products.filter(p => p.tags.includes("featured")).slice(0, 8);
+  const featured = products.filter(p => p.tags.includes("featured")).slice(0, 4);
   if (!featured.length) return null;
 
   return (
@@ -242,7 +119,7 @@ function FeaturedSection({ products }: { products: any[] }) {
 }
 
 function BestSellersSection({ products }: { products: any[] }) {
-  const bestSellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 8);
+  const bestSellers = [...products].sort((a, b) => b.reviews - a.reviews).slice(0, 4);
 
   return (
     <section className="container-page mt-12">
@@ -269,12 +146,10 @@ function HomePage() {
 
   return (
     <div className="space-y-0 pb-20 md:pb-0">
-      <HeroBanner />
       <TrustBadges />
       <CategorySection categories={categories} products={products} />
       <PopularSection products={products} />
       <NewArrivalsSection products={products} />
-      <OffersSection products={products} />
       <FeaturedSection products={products} />
       <BestSellersSection products={products} />
     </div>

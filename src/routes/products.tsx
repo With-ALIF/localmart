@@ -50,17 +50,29 @@ function sortProducts(list: Product[], sort: SortKey) {
   }
 }
 
-function parseSearch(search: Record<string, unknown>) {
+export type ProductSearchParams = {
+  q?: string | undefined;
+  category?: string | undefined;
+  sort?: string | undefined;
+  minPrice?: number | string | undefined;
+  maxPrice?: number | string | undefined;
+  minRating?: number | string | undefined;
+  inStock?: string | undefined;
+  page?: number | string | undefined;
+  view?: string | undefined;
+};
+
+function parseSearch(search: ProductSearchParams | Record<string, unknown>) {
   return {
     q: (search.q as string) || "",
     category: (search.category as string) || "",
-    sort: (search.sort as SortKey) || "popular",
+    sort: ((search.sort as SortKey) || "popular") as SortKey,
     minPrice: Number(search.minPrice) || 0,
     maxPrice: Number(search.maxPrice) || 0,
     minRating: Number(search.minRating) || 0,
     inStock: search.inStock === "true",
     page: Number(search.page) || 1,
-    view: (search.view as "grid" | "list") || "grid",
+    view: ((search.view as "grid" | "list") || "grid") as "grid" | "list",
   };
 }
 
@@ -210,26 +222,10 @@ function ProductsPage() {
     params.maxPrice || priceRange.max,
   ]);
 
-  const updateParams = (updates: Record<string, string | undefined>) => {
+  const updateParams = (updates: Partial<ProductSearchParams>) => {
     navigate({
-      search: (prev) => {
-        const next = { ...prev, ...updates };
-        const defaults: Record<string, string> = {
-          q: "",
-          category: "",
-          sort: "popular",
-          minPrice: "0",
-          maxPrice: "0",
-          minRating: "0",
-          inStock: "",
-          page: "1",
-          view: "grid",
-        };
-        Object.keys(next).forEach((k) => {
-          if (next[k] === undefined || next[k] === null || next[k] === defaults[k]) {
-            delete next[k];
-          }
-        });
+      search: (prev: ProductSearchParams) => {
+        const next: ProductSearchParams = { ...prev, ...updates };
         return next;
       },
       replace: true,
@@ -487,7 +483,7 @@ function ProductsPage() {
 
 export const Route = createFileRoute("/products")({
   component: ProductsPage,
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): ProductSearchParams => ({
     q: (search.q as string) || undefined,
     category: (search.category as string) || undefined,
     sort: (search.sort as string) || undefined,
